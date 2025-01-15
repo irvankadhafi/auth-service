@@ -18,6 +18,8 @@ import { RBACRepositoryImpl } from '@/repository/rbac.repository';
 // Use Cases
 import { LoginUseCase } from '@/usecase/auth/login.usecase';
 import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
+import {LogoutUseCase} from "@/usecase/auth/logout.usecase";
+import {RefreshTokenUseCase} from "@/usecase/auth/refresh-token.usecase";
 
 export class Server {
     private httpServer: express.Application;
@@ -33,7 +35,8 @@ export class Server {
     async initialize(): Promise<void> {
         await this.setupDatabase();
         await this.setupRedis();
-        await this.setupDependencyInjection();
+        await setupContainer(this.dataSource, this.redis); // Use the shared setup function
+        // await this.setupDependencyInjection();
     }
 
     private async setupDatabase(): Promise<void> {
@@ -64,6 +67,9 @@ export class Server {
         container.registerSingleton('UserRepository', UserRepositoryImpl);
         container.registerSingleton('SessionRepository', SessionRepositoryImpl);
         container.registerSingleton('RBACRepository', RBACRepositoryImpl);
+
+        // Debug log
+        console.log('UserRepository registered:', container.isRegistered('UserRepository'));
 
         // Register use cases
         container.registerSingleton(LoginUseCase);
@@ -123,4 +129,22 @@ export class Server {
         process.on('SIGTERM', shutdown);
         process.on('SIGINT', shutdown);
     }
+}
+
+export async function setupContainer(dataSource: DataSource, redis: Redis): Promise<void> {
+    // Register instances
+    container.registerInstance('DataSource', dataSource);
+    container.registerInstance('Redis', redis);
+    container.registerInstance('Logger', Logger);
+
+    // Register repositories
+    container.registerSingleton('UserRepository', UserRepositoryImpl);
+    container.registerSingleton('SessionRepository', SessionRepositoryImpl);
+    container.registerSingleton('RBACRepository', RBACRepositoryImpl);
+
+    // Register use cases
+    container.registerSingleton(LoginUseCase);
+    container.registerSingleton(ValidateTokenUseCase);
+    container.registerSingleton(LogoutUseCase);
+    container.registerSingleton(RefreshTokenUseCase);
 }

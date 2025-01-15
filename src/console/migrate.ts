@@ -17,25 +17,30 @@ export const migrateCommand = new Command('migrate')
                 type: 'postgres',
                 url: Config.DATABASE_URL,
                 entities: ['src/domain/entities/*.entity.ts'],
-                migrations: ['db/migration/*.sql'], // Sesuaikan dengan format file migrasi
-                migrationsTableName: 'schema_migrations',
+                migrations: ['db/migrations/*.ts'],
+                migrationsTableName: 'schema_migrations'
             });
 
             await dataSource.initialize();
+            Logger.info('Database connected');
 
             if (direction === 'down') {
                 if (step > 0) {
+                    Logger.info(`Rolling back ${step} migration(s)...`);
                     for (let i = 0; i < step; i++) {
                         await dataSource.undoLastMigration();
                     }
                 } else {
+                    Logger.info('Rolling back last migration...');
                     await dataSource.undoLastMigration();
                 }
             } else {
+                Logger.info('Running pending migrations...');
                 await dataSource.runMigrations();
             }
 
-            Logger.info(`Applied migrations successfully!`);
+            Logger.info('Migrations completed successfully!');
+            await dataSource.destroy();
             process.exit(0);
         } catch (error) {
             Logger.error('Migration failed:', error);

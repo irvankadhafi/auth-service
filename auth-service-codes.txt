@@ -1,0 +1,1721 @@
+=====================
+1678901234567-create-users.sql
+db/migration/1678901234567-create-users.sql
+=====================
+-- +migrate Up
+CREATE TABLE IF NOT EXISTS "users" (
+    "id" SERIAL PRIMARY KEY,
+    "email" VARCHAR(255) UNIQUE NOT NULL,
+    "password" VARCHAR(255) NOT NULL,
+    "role" VARCHAR(50) NOT NULL,
+    "is_active" BOOLEAN DEFAULT true,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- +migrate Down
+DROP TABLE IF EXISTS "users";
+=====================
+
+
+=====================
+1678901234568-create-sessions.sql
+db/migration/1678901234568-create-sessions.sql
+=====================
+-- +migrate Up
+CREATE TABLE IF NOT EXISTS "sessions" (
+    "id" SERIAL PRIMARY KEY,
+    "user_id" INTEGER NOT NULL,
+    "access_token" VARCHAR(255) UNIQUE NOT NULL,
+    "refresh_token" VARCHAR(255) UNIQUE NOT NULL,
+    "access_token_expired_at" TIMESTAMP WITH TIME ZONE NOT NULL,
+    "refresh_token_expired_at" TIMESTAMP WITH TIME ZONE NOT NULL,
+    "user_agent" VARCHAR(255),
+    "latitude" VARCHAR(50),
+    "longitude" VARCHAR(50),
+    "ip_address" VARCHAR(50),
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY ("user_id") REFERENCES "users" ("id")
+);
+
+-- +migrate Down
+DROP TABLE IF EXISTS "sessions";
+=====================
+
+
+=====================
+1678901234569-create-role-resource-actions.sql
+db/migration/1678901234569-create-role-resource-actions.sql
+=====================
+-- +migrate Up
+CREATE TYPE user_role AS ENUM ('ADMIN', 'MANAGER', 'EMPLOYEE');
+CREATE TYPE resource_type AS ENUM ('user', 'employee', 'attendance', 'session', 'report');
+CREATE TYPE action_type AS ENUM ('create', 'read', 'update', 'delete', 'approve', 'reject', 'submit');
+
+CREATE TABLE IF NOT EXISTS "resources" (
+    "id" resource_type PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS "actions" (
+    "id" action_type PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS "role_resource_actions" (
+    "role" user_role NOT NULL,
+    "resource" resource_type NOT NULL REFERENCES "resources"("id"),
+    "action" action_type NOT NULL REFERENCES "actions"("id"),
+    PRIMARY KEY ("role", "resource", "action")
+);
+
+-- +migrate Down
+DROP TABLE IF EXISTS "role_resource_actions";
+DROP TABLE IF EXISTS "actions";
+DROP TABLE IF EXISTS "resources";
+DROP TYPE IF EXISTS action_type;
+DROP TYPE IF EXISTS resource_type;
+DROP TYPE IF EXISTS user_role;
+=====================
+
+
+=====================
+package-lock.json
+package-lock.json
+=====================
+
+"package-lock.json" is not a text file (MIME type: application/json)
+
+=====================
+
+
+=====================
+package.json
+package.json
+=====================
+
+{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node -r tsconfig-paths/register src/index.ts serve",
+    "build": "tsc",
+    "migrate": "ts-node -r tsconfig-paths/register src/index.ts migrate",
+    "migrate:down": "ts-node -r tsconfig-paths/register src/index.ts migrate --direction down"
+  },
+  "_moduleAliases": {
+    "@": "dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.11.3",
+    "@apollo/subgraph": "^2.9.3",
+    "@grpc/grpc-js": "^1.12.5",
+    "@grpc/proto-loader": "^0.7.13",
+    "bcrypt": "^5.1.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "commander": "^13.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "graphql": "^16.10.0",
+    "ioredis": "^5.4.2",
+    "joi": "^17.13.3",
+    "module-alias": "^2.2.3",
+    "pg": "^8.13.1",
+    "redis": "^4.7.0",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.8.0",
+    "typeorm": "^0.3.20"
+  }
+}
+
+
+=====================
+
+
+=====================
+database.ts
+src/config/database.ts
+=====================
+import { DataSourceOptions } from 'typeorm';
+import { Config } from './index';
+
+export const databaseConfig: DataSourceOptions = {
+    type: 'postgres',
+    url: Config.DATABASE_URL,
+    entities: ['src/domain/entities/*.entity.ts'],
+    migrations: ['db/migration/*.sql'],
+    migrationsTableName: 'schema_migrations',
+    synchronize: false,
+    logging: true
+};
+=====================
+
+
+=====================
+index.ts
+src/config/index.ts
+=====================
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+export class Config {
+    static get NODE_ENV(): string {
+        return process.env.NODE_ENV || 'development';
+    }
+
+    static get DATABASE_URL(): string {
+        return process.env.DATABASE_URL || 'postgresql://auth_user:auth123@localhost:5432/auth_db';
+    }
+
+    static get REDIS_URL(): string {
+        return process.env.REDIS_URL || 'redis://localhost:6379';
+    }
+
+    static get HTTP_PORT(): number {
+        return parseInt(process.env.HTTP_PORT || '3000');
+    }
+
+    static get GRPC_PORT(): number {
+        return parseInt(process.env.GRPC_PORT || '50051');
+    }
+
+    static get JWT_SECRET(): string {
+        return process.env.JWT_SECRET || 'your-secret-key';
+    }
+}
+=====================
+
+
+=====================
+redis.ts
+src/config/redis.ts
+=====================
+import Redis from 'ioredis';
+import { config } from 'dotenv';
+
+config();
+
+export const redis = new Redis({
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+});
+=====================
+
+
+=====================
+migrate.ts
+src/console/migrate.ts
+=====================
+// src/console/migrate.ts
+import { Command } from 'commander';
+import { DataSource } from 'typeorm';
+import { Logger } from '@/utils/logger';
+import { Config } from '@/config';
+
+export const migrateCommand = new Command('migrate')
+    .description('Database migration command')
+    .option('--step <number>', 'maximum migration steps', '0')
+    .option('--direction <string>', 'migration direction (up/down)', 'up')
+    .action(async (options) => {
+        try {
+            const direction = options.direction;
+            const step = parseInt(options.step);
+
+            const dataSource = new DataSource({
+                type: 'postgres',
+                url: Config.DATABASE_URL,
+                entities: ['src/domain/entities/*.entity.ts'],
+                migrations: ['db/migration/*.sql'], // Sesuaikan dengan format file migrasi
+                migrationsTableName: 'schema_migrations',
+            });
+
+            await dataSource.initialize();
+
+            if (direction === 'down') {
+                if (step > 0) {
+                    for (let i = 0; i < step; i++) {
+                        await dataSource.undoLastMigration();
+                    }
+                } else {
+                    await dataSource.undoLastMigration();
+                }
+            } else {
+                await dataSource.runMigrations();
+            }
+
+            Logger.info(`Applied migrations successfully!`);
+            process.exit(0);
+        } catch (error) {
+            Logger.error('Migration failed:', error);
+            process.exit(1);
+        }
+    });
+=====================
+
+
+=====================
+server.ts
+src/console/server.ts
+=====================
+// src/console/server.ts
+import express from 'express';
+import { createServer } from 'http';
+import { container } from 'tsyringe';
+import { DataSource } from 'typeorm';
+import Redis from 'ioredis';
+import { Logger } from '@/utils/logger';
+import { Config } from '@/config';
+import { setupRoutes } from '@/delivery/http/routes';
+// import { setupGraphQL } from '@/delivery/graphql';
+// import { setupGRPC } from '@/delivery/grpc';
+
+// Repositories
+import { UserRepositoryImpl } from '@/repository/user.repository';
+import { SessionRepositoryImpl } from '@/repository/session.repository';
+import { RBACRepositoryImpl } from '@/repository/rbac.repository';
+
+// Use Cases
+import { LoginUseCase } from '@/usecase/auth/login.usecase';
+import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
+
+export class Server {
+    private httpServer: express.Application;
+    private dataSource!: DataSource;
+    private redis!: Redis;
+    private logger: typeof Logger;
+
+    constructor() {
+        this.httpServer = express();
+        this.logger = Logger;
+    }
+
+    async initialize(): Promise<void> {
+        await this.setupDatabase();
+        await this.setupRedis();
+        await this.setupDependencyInjection();
+    }
+
+    private async setupDatabase(): Promise<void> {
+        this.dataSource = new DataSource({
+            type: 'postgres',
+            url: Config.DATABASE_URL,
+            entities: ['src/domain/entities/*.entity.ts'],
+            synchronize: false,
+            logging: true
+        });
+
+        await this.dataSource.initialize();
+        this.logger.info('Database connected successfully');
+    }
+
+    private async setupRedis(): Promise<void> {
+        this.redis = new Redis(Config.REDIS_URL);
+        this.logger.info('Redis connected successfully');
+    }
+
+    private async setupDependencyInjection(): Promise<void> {
+        // Register instances
+        container.registerInstance('DataSource', this.dataSource);
+        container.registerInstance('Redis', this.redis);
+        container.registerInstance('Logger', this.logger);
+
+        // Register repositories
+        container.registerSingleton('UserRepository', UserRepositoryImpl);
+        container.registerSingleton('SessionRepository', SessionRepositoryImpl);
+        container.registerSingleton('RBACRepository', RBACRepositoryImpl);
+
+        // Register use cases
+        container.registerSingleton(LoginUseCase);
+        container.registerSingleton(ValidateTokenUseCase);
+    }
+
+    async start(): Promise<void> {
+        await this.initialize();
+
+        // Setup delivery methods
+        await Promise.all([
+            this.setupHttp(),
+            // this.setupGraphQL(),
+            // this.setupGRPC()
+        ]);
+
+        this.setupGracefulShutdown();
+    }
+
+    private async setupHttp(): Promise<void> {
+        const httpPort = Config.HTTP_PORT;
+
+        this.httpServer.use(express.json());
+        setupRoutes(this.httpServer);
+
+        return new Promise((resolve) => {
+            const server = this.httpServer.listen(httpPort, () => {
+                this.logger.info(`HTTP Server running on port ${httpPort}`);
+                resolve();
+            });
+
+            // HTTP Graceful shutdown
+            process.on('SIGTERM', () => {
+                this.logger.info('SIGTERM received. Shutting down HTTP server...');
+                server.close(() => {
+                    this.logger.info('HTTP server closed');
+                });
+            });
+        });
+    }
+
+    private setupGracefulShutdown(): void {
+        const shutdown = async () => {
+            this.logger.info('Shutting down...');
+
+            try {
+                await this.redis.quit();
+                await this.dataSource.destroy();
+                this.logger.info('Connections closed');
+                process.exit(0);
+            } catch (error) {
+                this.logger.error('Error during shutdown:', error);
+                process.exit(1);
+            }
+        };
+
+        process.on('SIGTERM', shutdown);
+        process.on('SIGINT', shutdown);
+    }
+}
+=====================
+
+
+=====================
+auth.handler.ts
+src/delivery/http/handlers/auth.handler.ts
+=====================
+// src/delivery/http/handlers/auth.handler.ts
+import { Request, Response } from 'express';
+import { injectable } from 'tsyringe';
+import { LoginUseCase } from '@/usecase/auth/login.usecase';
+import { LogoutUseCase } from '@/usecase/auth/logout.usecase';
+import { RefreshTokenUseCase } from '@/usecase/auth/refresh-token.usecase';
+import { AuthError } from '@/utils/errors';
+import { Logger } from '@/utils/logger';
+
+@injectable()
+export class AuthHandler {
+    constructor(
+        private loginUseCase: LoginUseCase,
+        private logoutUseCase: LogoutUseCase,
+        private refreshTokenUseCase: RefreshTokenUseCase
+    ) {}
+
+    async login(req: Request, res: Response): Promise<void> {
+        try {
+            const { email, password } = req.body;
+            const userAgent = req.headers['user-agent'] || '';
+            const ipAddress = req.ip || '';
+
+            // Get location from headers or set default
+            const latitude = req.headers['x-latitude'] as string || '0';
+            const longitude = req.headers['x-longitude'] as string || '0';
+
+            const session = await this.loginUseCase.execute({
+                email,
+                password,
+                userAgent,
+                ipAddress,
+                latitude,
+                longitude
+            });
+
+            res.status(200).json({
+                status: 'success',
+                data: {
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken,
+                    expiresIn: session.expiresIn,
+                    tokenType: 'Bearer'
+                }
+            });
+        } catch (error) {
+            if (error instanceof AuthError) {
+                res.status(401).json({
+                    status: 'error',
+                    message: error.message
+                });
+                return;
+            }
+
+            Logger.error('Error during login:', error);
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error'
+            });
+        }
+    }
+
+    async logout(req: Request, res: Response): Promise<void> {
+        try {
+            const token = req.headers.authorization?.split(' ')[1];
+            if (!token) {
+                res.status(400).json({
+                    status: 'error',
+                    message: 'Token is required'
+                });
+                return;
+            }
+
+            await this.logoutUseCase.execute(token);
+
+            res.status(200).json({
+                status: 'success',
+                message: 'Logged out successfully'
+            });
+        } catch (error) {
+            if (error instanceof AuthError) {
+                res.status(401).json({
+                    status: 'error',
+                    message: error.message
+                });
+                return;
+            }
+
+            Logger.error('Error during logout:', error);
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error'
+            });
+        }
+    }
+
+    async refreshToken(req: Request, res: Response): Promise<void> {
+        try {
+            const { refreshToken } = req.body;
+            if (!refreshToken) {
+                res.status(400).json({
+                    status: 'error',
+                    message: 'Refresh token is required'
+                });
+                return;
+            }
+
+            const session = await this.refreshTokenUseCase.execute(refreshToken);
+
+            res.status(200).json({
+                status: 'success',
+                data: {
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken,
+                    expiresIn: session.expiresIn,
+                    tokenType: 'Bearer'
+                }
+            });
+        } catch (error) {
+            if (error instanceof AuthError) {
+                res.status(401).json({
+                    status: 'error',
+                    message: error.message
+                });
+                return;
+            }
+
+            Logger.error('Error during refresh token:', error);
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error'
+            });
+        }
+    }
+}
+=====================
+
+
+=====================
+error.handler.ts
+src/delivery/http/middlewares/error.handler.ts
+=====================
+// src/delivery/http/middlewares/error.handler.ts
+import { Request, Response, NextFunction } from 'express';
+import { Logger } from '@/utils/logger';
+
+export const errorHandler = (
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+): void => {
+    Logger.error('Error handling request:', {
+        message: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method
+    });
+
+    res.status(500).json({
+        status: 'error',
+        message: 'Internal server error'
+    });
+};
+=====================
+
+
+=====================
+request.logger.ts
+src/delivery/http/middlewares/request.logger.ts
+=====================
+// src/delivery/http/middlewares/request.logger.ts
+import { Request, Response, NextFunction } from 'express';
+import { Logger } from '@/utils/logger';
+
+export const requestLogger = (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): void => {
+    Logger.info(`${req.method} ${req.path}`, {
+        body: req.body,
+        query: req.query,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+    });
+    next();
+};
+=====================
+
+
+=====================
+auth.validator.ts
+src/delivery/http/middlewares/validators/auth.validator.ts
+=====================
+// src/delivery/http/middlewares/validators/auth.validator.ts
+import { Request, Response, NextFunction } from 'express';
+import Joi from 'joi';
+
+const loginSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required()
+});
+
+const refreshTokenSchema = Joi.object({
+    refreshToken: Joi.string().required()
+});
+
+export const validateLoginRequest = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        await loginSchema.validateAsync(req.body);
+        next();
+    } catch (error) {
+        if (error instanceof Joi.ValidationError) {
+            res.status(400).json({
+                status: 'error',
+                message: 'Invalid request data',
+                errors: error.details // TypeScript sekarang tahu bahwa `error.details` ada
+            });
+        } else {
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error'
+            });
+        }
+    }
+};
+
+export const validateRefreshTokenRequest = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        await refreshTokenSchema.validateAsync(req.body);
+        next();
+    } catch (error) {
+        if (error instanceof Joi.ValidationError) {
+            res.status(400).json({
+                status: 'error',
+                message: 'Invalid request data',
+                errors: error.details // Sama seperti di atas
+            });
+        } else {
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error'
+            });
+        }
+    }
+};
+=====================
+
+
+=====================
+auth.route.ts
+src/delivery/http/routes/auth.route.ts
+=====================
+// src/delivery/http/routes/auth.route.ts
+import { Router } from 'express';
+import { container } from 'tsyringe';
+import { AuthHandler } from '../handlers/auth.handler';
+import { validateLoginRequest, validateRefreshTokenRequest } from '../middlewares/validators/auth.validator';
+
+export const authRouter = Router();
+const authHandler = container.resolve(AuthHandler);
+
+authRouter.post('/login', validateLoginRequest, (req, res) => authHandler.login(req, res));
+authRouter.post('/logout', (req, res) => authHandler.logout(req, res));
+authRouter.post('/refresh-token', validateRefreshTokenRequest, (req, res) => authHandler.refreshToken(req, res));
+=====================
+
+
+=====================
+index.ts
+src/delivery/http/routes/index.ts
+=====================
+// src/delivery/http/routes/index.ts
+import { Router } from 'express';
+import { authRouter } from './auth.route';
+import { errorHandler } from '../middlewares/error.handler';
+import { requestLogger } from '../middlewares/request.logger';
+
+export const setupRoutes = (app: Router): void => {
+    // Middlewares
+    app.use(requestLogger);
+
+    // Routes
+    app.use('/api/v1/auth', authRouter);
+
+    // Error Handler
+    app.use(errorHandler);
+};
+=====================
+
+
+=====================
+action.entity.ts
+src/domain/entities/action.entity.ts
+=====================
+// src/domain/entities/action.entity.ts
+import { Entity, PrimaryColumn } from 'typeorm';
+
+@Entity('actions')
+export class Action {
+    @PrimaryColumn()
+    id!: string;
+}
+=====================
+
+
+=====================
+resource.entity.ts
+src/domain/entities/resource.entity.ts
+=====================
+import { Entity, PrimaryColumn } from 'typeorm';
+
+@Entity('resources')
+export class Resource {
+    @PrimaryColumn()
+    id!: string;
+}
+=====================
+
+
+=====================
+roleResourceAction.entity.ts
+src/domain/entities/roleResourceAction.entity.ts
+=====================
+import { Entity, Column, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Role } from '@/utils/constants';
+import { Resource } from './resource.entity';
+import { Action } from './action.entity';
+
+@Entity('role_resource_actions')
+export class RoleResourceAction {
+    @PrimaryColumn({
+        type: 'enum',
+        enum: Role
+    })
+    role!: Role;
+
+    @PrimaryColumn()
+    resource!: string;
+
+    @PrimaryColumn()
+    action!: string;
+
+    @ManyToOne(() => Resource)
+    @JoinColumn({ name: 'resource' })
+    resourceRef!: Resource;
+
+    @ManyToOne(() => Action)
+    @JoinColumn({ name: 'action' })
+    actionRef!: Action;
+}
+=====================
+
+
+=====================
+session.entity.ts
+src/domain/entities/session.entity.ts
+=====================
+// src/domain/entities/session.entity.ts
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {Role} from "@/utils/constants";
+
+@Entity('sessions')
+export class Session {
+    @PrimaryGeneratedColumn()
+    id!: number;
+
+    @Column({ name: 'user_id' })
+    userId!: number;
+
+    @Column({ name: 'access_token', unique: true })
+    accessToken!: string;
+
+    @Column({ name: 'refresh_token', unique: true })
+    refreshToken!: string;
+
+    @Column({ name: 'access_token_expired_at' })
+    accessTokenExpiredAt!: Date;
+
+    @Column({ name: 'refresh_token_expired_at' })
+    refreshTokenExpiredAt!: Date;
+
+    @Column({ name: 'user_agent' })
+    userAgent!: string;
+
+    @Column()
+    latitude!: string;
+
+    @Column()
+    longitude!: string;
+
+    @Column({ name: 'ip_address' })
+    ipAddress!: string;
+
+    @CreateDateColumn()
+    createdAt!: Date;
+
+    @UpdateDateColumn()
+    updatedAt!: Date;
+
+    role!: Role;
+
+    isAccessTokenExpired(): boolean {
+        return new Date() > this.accessTokenExpiredAt;
+    }
+
+    static newSessionTokenCacheKey(token: string): string {
+        return `cache:id:session_token:${token}`;
+    }
+
+    static newSessionTokenCacheKeyByID(id: number): string {
+        return `cache:object:session:id:${id}`;
+    }
+}
+=====================
+
+
+=====================
+user.entity.ts
+src/domain/entities/user.entity.ts
+=====================
+// src/domain/entities/user.entity.ts
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Role } from '@/utils/constants';
+
+@Entity('users')
+export class User {
+    @PrimaryGeneratedColumn()
+    id!: number;
+
+    @Column({ unique: true })
+    email!: string;
+
+    @Column()
+    password!: string;
+
+    @Column({
+        type: 'enum',
+        enum: Role,
+        default: Role.EMPLOYEE
+    })
+    role!: Role;
+
+    @Column({ default: true })
+    isActive!: boolean;
+
+    @CreateDateColumn()
+    createdAt!: Date;
+
+    @UpdateDateColumn()
+    updatedAt!: Date;
+}
+=====================
+
+
+=====================
+rbac.repository.ts
+src/domain/repositories/rbac.repository.ts
+=====================
+import { Role } from '@/utils/constants';
+
+export interface Permission {
+    RRA: Map<Role, Array<{ resource: string; action: string }>>;
+}
+
+export interface RBACRepository {
+    createResource(resource: string): Promise<void>;
+    createAction(action: string): Promise<void>;
+    createRoleResourceAction(role: Role, resource: string, action: string): Promise<void>;
+    loadPermission(): Promise<Permission>;
+    hasPermission(role: Role, resource: string, action: string): Promise<boolean>;
+    initializeDefaultPermissions(): Promise<void>;
+}
+=====================
+
+
+=====================
+session.repository.ts
+src/domain/repositories/session.repository.ts
+=====================
+import { Session } from '../entities/session.entity';
+import { TokenType } from '@/utils/constants';
+
+export interface SessionRepository {
+    create(session: Session): Promise<Session>;
+    findByToken(tokenType: TokenType, token: string): Promise<Session | null>;
+    findById(id: number): Promise<Session | null>;
+    findByUserId(userId: number): Promise<Session[]>;
+    delete(id: number): Promise<void>;
+    deleteByUserId(userId: number): Promise<void>;
+    refreshToken(oldSession: Session, newSession: Session): Promise<void>;
+}
+=====================
+
+
+=====================
+user.repository.ts
+src/domain/repositories/user.repository.ts
+=====================
+import { User } from '../entities/user.entity';
+
+export interface UserRepository {
+    create(user: User): Promise<User>;
+    findById(id: number): Promise<User | null>;
+    findByEmail(email: string): Promise<User | null>;
+    update(id: number, user: Partial<User>): Promise<User>;
+    delete(id: number): Promise<void>;
+}
+=====================
+
+
+=====================
+auth.usecase.ts
+src/domain/usecases/auth.usecase.ts
+=====================
+import { Role } from '@/utils/constants';
+
+export interface LoginRequest {
+    email: string;
+    password: string;
+    userAgent?: string;
+    ipAddress?: string;
+    latitude?: string;
+    longitude?: string;
+}
+
+export interface LoginResponse {
+    accessToken: string;
+    refreshToken: string;
+    user: {
+        id: number;
+        email: string;
+        role: Role;
+    };
+    expiresIn: number;
+}
+
+export interface ValidateTokenResponse {
+    userId: number;
+    role: Role;
+    permissions: Map<string, string[]>;
+}
+
+export interface AuthUseCase {
+    login(req: LoginRequest): Promise<LoginResponse>;
+    validateToken(token: string): Promise<ValidateTokenResponse>;
+    refreshToken(token: string): Promise<LoginResponse>;
+    logout(token: string): Promise<void>;
+}
+=====================
+
+
+=====================
+index.ts
+src/index.ts
+=====================
+import 'reflect-metadata';
+import { Command } from 'commander';
+import { Server } from './console/server';
+import { migrateCommand } from './console/migrate';
+
+const program = new Command();
+
+program
+    .name('auth-service')
+    .description('Authentication Service CLI')
+    .version('1.0.0');
+
+// Add migrate command
+program.addCommand(migrateCommand);
+
+// Add server command
+program
+    .command('serve')
+    .description('Start the server')
+    .action(async () => {
+        const server = new Server();
+        await server.start();
+    });
+
+program.parse();
+=====================
+
+
+=====================
+rbac.repository.ts
+src/repository/rbac.repository.ts
+=====================
+// src/repository/rbac.repository.ts
+import { injectable } from 'tsyringe';
+import { Repository, DataSource } from 'typeorm';
+import { Redis } from 'ioredis';
+import {DEFAULT_ACTIONS, DEFAULT_RESOURCES, Role} from '@/utils/constants';
+import { Resource } from '@/domain/entities/resource.entity';
+import { Action } from '@/domain/entities/action.entity';
+import { RoleResourceAction } from '@/domain/entities/roleResourceAction.entity';
+import { RBACRepository, Permission } from '@/domain/repositories/rbac.repository';
+
+@injectable()
+export class RBACRepositoryImpl implements RBACRepository {
+    private resourceRepo: Repository<Resource>;
+    private actionRepo: Repository<Action>;
+    private rraRepo: Repository<RoleResourceAction>;
+    private RBAC_PERMISSION_CACHE_KEY = 'cache:object:rbac:permission';
+
+    constructor(
+        dataSource: DataSource,
+        private redis: Redis
+    ) {
+        this.resourceRepo = dataSource.getRepository(Resource);
+        this.actionRepo = dataSource.getRepository(Action);
+        this.rraRepo = dataSource.getRepository(RoleResourceAction);
+    }
+
+    async createResource(resource: string): Promise<void> {
+        const res = new Resource();
+        res.id = resource;
+        await this.resourceRepo.save(res);
+        await this.redis.del(this.RBAC_PERMISSION_CACHE_KEY);
+    }
+
+    async createAction(action: string): Promise<void> {
+        const act = new Action();
+        act.id = action;
+        await this.actionRepo.save(act);
+        await this.redis.del(this.RBAC_PERMISSION_CACHE_KEY);
+    }
+
+    async createRoleResourceAction(role: Role, resource: string, action: string): Promise<void> {
+        const rra = new RoleResourceAction();
+        rra.role = role;
+        rra.resource = resource;
+        rra.action = action;
+        await this.rraRepo.save(rra);
+        await this.redis.del(this.RBAC_PERMISSION_CACHE_KEY);
+    }
+
+    async loadPermission(): Promise<Permission> {
+        const cachedPermission = await this.redis.get(this.RBAC_PERMISSION_CACHE_KEY);
+        if (cachedPermission) {
+            return JSON.parse(cachedPermission);
+        }
+
+        const permissions = await this.rraRepo.find();
+        const permissionMap = new Map<Role, Array<{ resource: string; action: string }>>();
+
+        permissions.forEach(permission => {
+            const rolePermissions = permissionMap.get(permission.role) || [];
+            rolePermissions.push({
+                resource: permission.resource,
+                action: permission.action
+            });
+            permissionMap.set(permission.role, rolePermissions);
+        });
+
+        const permission: Permission = {
+            RRA: permissionMap
+        };
+
+        await this.redis.set(
+            this.RBAC_PERMISSION_CACHE_KEY,
+            JSON.stringify(permission),
+            'EX',
+            3600
+        );
+
+        return permission;
+    }
+
+    async hasPermission(role: Role, resource: string, action: string): Promise<boolean> {
+        const permission = await this.loadPermission();
+        const rolePermissions = permission.RRA.get(role) || [];
+
+        return rolePermissions.some(
+            rra => rra.resource === resource && rra.action === action
+        );
+    }
+
+    async initializeDefaultPermissions(): Promise<void> {
+        // Create default resources
+        for (const resource of Object.values(DEFAULT_RESOURCES)) {
+            await this.createResource(resource);
+        }
+
+        // Create default actions
+        for (const action of Object.values(DEFAULT_ACTIONS)) {
+            await this.createAction(action);
+        }
+
+        // Create default role-resource-actions
+        const defaultPermissions = [
+            // Admin permissions
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.CREATE },
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.READ },
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.UPDATE },
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.DELETE },
+
+            // Manager permissions
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.EMPLOYEE, action: DEFAULT_ACTIONS.READ },
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.READ },
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.APPROVE },
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.REJECT },
+
+            // Employee permissions
+            { role: Role.EMPLOYEE, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.SUBMIT },
+            { role: Role.EMPLOYEE, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.READ },
+        ];
+
+        for (const perm of defaultPermissions) {
+            await this.createRoleResourceAction(perm.role, perm.resource, perm.action);
+        }
+    }
+}
+=====================
+
+
+=====================
+session.repository.ts
+src/repository/session.repository.ts
+=====================
+// src/repository/session.repository.ts
+import { injectable } from 'tsyringe';
+import { Repository, DataSource } from 'typeorm';
+import { Redis } from 'ioredis';
+import { Session } from '@/domain/entities/session.entity';
+import { SessionRepository } from '@/domain/repositories/session.repository';
+import { TokenType } from '@/utils/constants';
+
+@injectable()
+export class SessionRepositoryImpl implements SessionRepository {
+    private repository: Repository<Session>;
+
+    constructor(
+        dataSource: DataSource,
+        private redis: Redis
+    ) {
+        this.repository = dataSource.getRepository(Session);
+    }
+
+    async create(session: Session): Promise<Session> {
+        const savedSession = await this.repository.save(session);
+        await this.cacheSession(savedSession);
+        return savedSession;
+    }
+
+    async findByToken(tokenType: TokenType, token: string): Promise<Session | null> {
+        const cacheKey = Session.newSessionTokenCacheKey(token);
+        const cachedSession = await this.redis.get(cacheKey);
+
+        if (cachedSession) {
+            return JSON.parse(cachedSession);
+        }
+
+        const session = await this.repository.findOne({
+            where: tokenType === TokenType.ACCESS_TOKEN
+                ? { accessToken: token }
+                : { refreshToken: token }
+        });
+
+        if (session) {
+            await this.cacheSession(session);
+        }
+
+        return session;
+    }
+
+    private async cacheSession(session: Session): Promise<void> {
+        const cacheKey = Session.newSessionTokenCacheKey(session.accessToken);
+        await this.redis.set(cacheKey, JSON.stringify(session), 'EX', 3600); // 1 hour
+    }
+
+    async delete(id: number): Promise<void> {
+        await this.repository.delete(id);
+        const cacheKey = Session.newSessionTokenCacheKeyByID(id);
+        await this.redis.del(cacheKey);
+    }
+
+    async deleteByUserId(userId: number): Promise<void> {
+        const sessions = await this.repository.find({ where: { userId } });
+        for (const session of sessions) {
+            await this.delete(session.id);
+        }
+    }
+
+    async findById(id: number): Promise<Session | null> {
+        const cacheKey = Session.newSessionTokenCacheKeyByID(id);
+        const cachedSession = await this.redis.get(cacheKey);
+
+        if (cachedSession) {
+            return JSON.parse(cachedSession);
+        }
+
+        const session = await this.repository.findOne({
+            where: { id: id }
+        });
+
+        if (session) {
+            await this.cacheSession(session);
+        }
+
+        return session;
+    }
+
+    async findByUserId(userId: number): Promise<Session[]> {
+        return await this.repository.find({ where: { userId } });
+    }
+
+    // Implementasi refreshToken
+    async refreshToken(oldSession: Session, newSession: Session): Promise<void> {
+        // Hapus sesi lama
+        await this.delete(oldSession.id);
+
+        // Simpan sesi baru
+        await this.create(newSession);
+    }
+}
+=====================
+
+
+=====================
+user.repository.ts
+src/repository/user.repository.ts
+=====================
+import { injectable } from 'tsyringe';
+import { Repository, DataSource } from 'typeorm';
+import { User } from '@/domain/entities/user.entity';
+import { UserRepository } from '@/domain/repositories/user.repository';
+
+@injectable()
+export class UserRepositoryImpl implements UserRepository {
+    private repository: Repository<User>;
+
+    constructor(dataSource: DataSource) {
+        this.repository = dataSource.getRepository(User);
+    }
+
+    async create(user: User): Promise<User> {
+        return await this.repository.save(user);
+    }
+
+    async findById(id: number): Promise<User | null> {
+        return await this.repository.findOneBy({ id });
+    }
+
+    async findByEmail(email: string): Promise<User | null> {
+        return await this.repository.findOneBy({ email });
+    }
+
+    async update(id: number, userData: Partial<User>): Promise<User> {
+        await this.repository.update(id, userData);
+        return (await this.findById(id))!;
+    }
+
+    async delete(id: number): Promise<void> {
+        await this.repository.delete(id);
+    }
+}
+=====================
+
+
+=====================
+login.usecase.ts
+src/usecase/auth/login.usecase.ts
+=====================
+// src/usecase/auth/login.usecase.ts
+import { inject, injectable } from 'tsyringe';
+import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+import { UserRepository } from '@/domain/repositories/user.repository';
+import { SessionRepository } from '@/domain/repositories/session.repository';
+import { RBACRepository } from '@/domain/repositories/rbac.repository';
+import { LoginRequest, LoginResponse } from '@/domain/usecases/auth.usecase';
+import { Session } from '@/domain/entities/session.entity';
+import { AuthError } from '@/utils/errors';
+
+@injectable()
+export class LoginUseCase {
+    constructor(
+        @inject('UserRepository') private userRepo: UserRepository,
+        @inject('SessionRepository') private sessionRepo: SessionRepository,
+        @inject('RBACRepository') private rbacRepo: RBACRepository
+    ) {}
+
+    async execute(req: LoginRequest): Promise<LoginResponse> {
+        // Find user
+        const user = await this.userRepo.findByEmail(req.email);
+        if (!user) {
+            throw new AuthError('Invalid email or password');
+        }
+
+        // Validate password
+        const isValidPassword = await bcrypt.compare(req.password, user.password).catch(() => false);
+        if (!isValidPassword) {
+            throw new AuthError('Invalid email or password');
+        }
+
+        // Validate latitude and longitude
+        const latitude = req.latitude || '0';
+        const longitude = req.longitude || '0';
+        if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
+            throw new AuthError('Invalid location data');
+        }
+
+        // Generate tokens
+        const accessToken = randomBytes(32).toString('hex');
+        const refreshToken = randomBytes(32).toString('hex');
+
+        // Create session
+        const now = new Date();
+        const session = new Session();
+        session.userId = user.id;
+        session.accessToken = accessToken;
+        session.refreshToken = refreshToken;
+        session.accessTokenExpiredAt = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour
+        session.refreshTokenExpiredAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        session.userAgent = req.userAgent || '';
+        session.ipAddress = req.ipAddress || '';
+        session.latitude = latitude;
+        session.longitude = longitude;
+        session.createdAt = now;
+        session.updatedAt = now;
+
+        await this.sessionRepo.create(session);
+
+        // Load permissions
+        const permissions = await this.rbacRepo.loadPermission();
+
+        return {
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+            },
+            expiresIn: session.accessTokenExpiredAt.getTime(),
+        };
+    }
+}
+=====================
+
+
+=====================
+logout.usecase.ts
+src/usecase/auth/logout.usecase.ts
+=====================
+import {inject, injectable} from 'tsyringe';
+import {SessionRepository} from '@/domain/repositories/session.repository';
+import {AuthError} from '@/utils/errors';
+import {TokenType} from "@/utils/constants";
+
+@injectable()
+export class LogoutUseCase {
+    constructor(
+        @inject('SessionRepository') private sessionRepo: SessionRepository
+    ) {}
+
+    async execute(token: string): Promise<void> {
+        const session = await this.sessionRepo.findByToken(TokenType.ACCESS_TOKEN, token);
+        if (!session) {
+            throw new AuthError('Invalid token');
+        }
+
+        await this.sessionRepo.delete(session.id);
+    }
+}
+=====================
+
+
+=====================
+refresh-token.usecase.ts
+src/usecase/auth/refresh-token.usecase.ts
+=====================
+// src/usecase/auth/refresh-token.usecase.ts
+import { inject, injectable } from 'tsyringe';
+import { randomBytes } from 'crypto';
+import { SessionRepository } from '@/domain/repositories/session.repository';
+import { UserRepository } from '@/domain/repositories/user.repository';
+import { LoginResponse } from '@/domain/usecases/auth.usecase';
+import { Session } from '@/domain/entities/session.entity';
+import { AuthError } from '@/utils/errors';
+import { TokenType } from '@/utils/constants';
+
+@injectable()
+export class RefreshTokenUseCase {
+    constructor(
+        @inject('SessionRepository') private sessionRepo: SessionRepository,
+        @inject('UserRepository') private userRepo: UserRepository
+    ) {}
+
+    async execute(refreshToken: string): Promise<LoginResponse> {
+        // Find session by refresh token
+        const oldSession = await this.sessionRepo.findByToken(TokenType.REFRESH_TOKEN, refreshToken);
+        if (!oldSession) {
+            throw new AuthError('Invalid refresh token');
+        }
+
+        // Generate new tokens
+        const accessToken = randomBytes(32).toString('hex');
+        const newRefreshToken = randomBytes(32).toString('hex');
+
+        // Create new session
+        const now = new Date();
+        const newSession = new Session();
+        newSession.userId = oldSession.userId;
+        newSession.accessToken = accessToken;
+        newSession.refreshToken = newRefreshToken;
+        newSession.accessTokenExpiredAt = new Date(now.getTime() + 1 * 60 * 60 * 1000);
+        newSession.refreshTokenExpiredAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        newSession.userAgent = oldSession.userAgent;
+        newSession.ipAddress = oldSession.ipAddress;
+        newSession.latitude = oldSession.latitude;
+        newSession.longitude = oldSession.longitude;
+        newSession.createdAt = now;
+        newSession.updatedAt = now;
+
+        // Refresh session
+        await this.sessionRepo.refreshToken(oldSession, newSession);
+
+        // Get user data
+        const user = await this.userRepo.findById(oldSession.userId);
+        if (!user) {
+            throw new AuthError('User not found');
+        }
+
+        return {
+            accessToken,
+            refreshToken: newRefreshToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role
+            },
+            expiresIn: newSession.accessTokenExpiredAt.getTime()
+        };
+    }
+}
+=====================
+
+
+=====================
+validate-token.usecase.ts
+src/usecase/auth/validate-token.usecase.ts
+=====================
+import {inject, injectable} from 'tsyringe';
+import {SessionRepository} from '@/domain/repositories/session.repository';
+import {RBACRepository} from '@/domain/repositories/rbac.repository';
+import {ValidateTokenResponse} from '@/domain/usecases/auth.usecase';
+import {AuthError} from '@/utils/errors';
+import {TokenType} from "@/utils/constants";
+
+@injectable()
+export class ValidateTokenUseCase {
+    constructor(
+        @inject('SessionRepository') private sessionRepo: SessionRepository,
+        @inject('RBACRepository') private rbacRepo: RBACRepository
+    ) {}
+
+    async execute(token: string): Promise<ValidateTokenResponse> {
+        // Find session
+        const session = await this.sessionRepo.findByToken(TokenType.ACCESS_TOKEN, token);
+        if (!session) {
+            throw new AuthError('Invalid token');
+        }
+
+        // Check if token is expired
+        if (session.isAccessTokenExpired()) {
+            throw new AuthError('Token expired');
+        }
+
+        // Load user permissions
+        const permissions = await this.rbacRepo.loadPermission();
+        const userPermissions = permissions.RRA.get(session.role) || [];
+
+        // Transform permissions to map for easier access
+        const permissionMap = new Map<string, string[]>();
+        userPermissions.forEach(({ resource, action }) => {
+            const actions = permissionMap.get(resource) || [];
+            actions.push(action);
+            permissionMap.set(resource, actions);
+        });
+
+        return {
+            userId: session.userId,
+            role: session.role,
+            permissions: permissionMap
+        };
+    }
+}
+=====================
+
+
+=====================
+constants.ts
+src/utils/constants.ts
+=====================
+// src/utils/constants.ts
+export enum Role {
+    ADMIN = 'ADMIN',
+    MANAGER = 'MANAGER',
+    EMPLOYEE = 'EMPLOYEE'
+}
+
+export const DEFAULT_RESOURCES = {
+    USER: 'user',
+    EMPLOYEE: 'employee',
+    ATTENDANCE: 'attendance',
+    SESSION: 'session',
+    REPORT: 'report'
+} as const;
+
+export const DEFAULT_ACTIONS = {
+    CREATE: 'create',
+    READ: 'read',
+    UPDATE: 'update',
+    DELETE: 'delete',
+    APPROVE: 'approve',
+    REJECT: 'reject',
+    SUBMIT: 'submit'
+} as const;
+
+export enum TokenType {
+    ACCESS_TOKEN = 0,
+    REFRESH_TOKEN = 1
+}
+=====================
+
+
+=====================
+errors.ts
+src/utils/errors.ts
+=====================
+export class AuthError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'AuthError';
+    }
+}
+
+export class PermissionError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'PermissionError';
+    }
+}
+=====================
+
+
+=====================
+logger.ts
+src/utils/logger.ts
+=====================
+export const Logger = {
+    info: (message: string, ...args: any[]) => {
+        console.log(`[INFO] ${message}`, ...args);
+    },
+    error: (message: string, ...args: any[]) => {
+        console.error(`[ERROR] ${message}`, ...args);
+    },
+    warn: (message: string, ...args: any[]) => {
+        console.warn(`[WARN] ${message}`, ...args);
+    }
+};
+=====================
+
+
+=====================
+token.ts
+src/utils/token.ts
+=====================
+// src/utils/token.ts
+import { randomBytes } from 'crypto';
+
+export function generateToken(length: number = 32): string {
+    return randomBytes(length).toString('hex');
+}
+=====================
+
+
+=====================
+tsconfig.json
+tsconfig.json
+=====================
+{
+  "compilerOptions": {
+    /* Visit https://aka.ms/tsconfig to read more about this file */
+
+    /* Projects */
+    // "incremental": true,                              /* Save .tsbuildinfo files to allow for incremental compilation of projects. */
+    // "composite": true,                                /* Enable constraints that allow a TypeScript project to be used with project references. */
+    // "tsBuildInfoFile": "./.tsbuildinfo",              /* Specify the path to .tsbuildinfo incremental compilation file. */
+    // "disableSourceOfProjectReferenceRedirect": true,  /* Disable preferring source files instead of declaration files when referencing composite projects. */
+    // "disableSolutionSearching": true,                 /* Opt a project out of multi-project reference checking when editing. */
+    // "disableReferencedProjectLoad": true,             /* Reduce the number of projects loaded automatically by TypeScript. */
+
+    /* Language and Environment */
+    "target": "ES2020",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+    "lib": ["es2020"],                                   /* Specify a set of bundled library declaration files that describe the target runtime environment. */
+    // "jsx": "preserve",                                /* Specify what JSX code is generated. */
+     "experimentalDecorators": true,                   /* Enable experimental support for legacy experimental decorators. */
+     "emitDecoratorMetadata": true,                    /* Emit design-type metadata for decorated declarations in source files. */
+    // "jsxFactory": "",                                 /* Specify the JSX factory function used when targeting React JSX emit, e.g. 'React.createElement' or 'h'. */
+    // "jsxFragmentFactory": "",                         /* Specify the JSX Fragment reference used for fragments when targeting React JSX emit e.g. 'React.Fragment' or 'Fragment'. */
+    // "jsxImportSource": "",                            /* Specify module specifier used to import the JSX factory functions when using 'jsx: react-jsx*'. */
+    // "reactNamespace": "",                             /* Specify the object invoked for 'createElement'. This only applies when targeting 'react' JSX emit. */
+    // "noLib": true,                                    /* Disable including any library files, including the default lib.d.ts. */
+    // "useDefineForClassFields": true,                  /* Emit ECMAScript-standard-compliant class fields. */
+    // "moduleDetection": "auto",                        /* Control what method is used to detect module-format JS files. */
+
+    /* Modules */
+    "module": "commonjs",                                /* Specify what module code is generated. */
+    "rootDir": "./src",                                  /* Specify the root folder within your source files. */
+    // "moduleResolution": "node10",                     /* Specify how TypeScript looks up a file from a given module specifier. */
+    "baseUrl": ".",                                  /* Specify the base directory to resolve non-relative module names. */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    // "paths": {},                                      /* Specify a set of entries that re-map imports to additional lookup locations. */
+    // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
+    // "typeRoots": [],                                  /* Specify multiple folders that act like './node_modules/@types'. */
+    // "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
+    // "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
+    // "moduleSuffixes": [],                             /* List of file name suffixes to search when resolving a module. */
+    // "allowImportingTsExtensions": true,               /* Allow imports to include TypeScript file extensions. Requires '--moduleResolution bundler' and either '--noEmit' or '--emitDeclarationOnly' to be set. */
+    // "rewriteRelativeImportExtensions": true,          /* Rewrite '.ts', '.tsx', '.mts', and '.cts' file extensions in relative import paths to their JavaScript equivalent in output files. */
+    // "resolvePackageJsonExports": true,                /* Use the package.json 'exports' field when resolving package imports. */
+    // "resolvePackageJsonImports": true,                /* Use the package.json 'imports' field when resolving imports. */
+    // "customConditions": [],                           /* Conditions to set in addition to the resolver-specific defaults when resolving imports. */
+    // "noUncheckedSideEffectImports": true,             /* Check side effect imports. */
+    // "resolveJsonModule": true,                        /* Enable importing .json files. */
+    // "allowArbitraryExtensions": true,                 /* Enable importing files with any extension, provided a declaration file is present. */
+    // "noResolve": true,                                /* Disallow 'import's, 'require's or '<reference>'s from expanding the number of files TypeScript should add to a project. */
+
+    /* JavaScript Support */
+    // "allowJs": true,                                  /* Allow JavaScript files to be a part of your program. Use the 'checkJS' option to get errors from these files. */
+    // "checkJs": true,                                  /* Enable error reporting in type-checked JavaScript files. */
+    // "maxNodeModuleJsDepth": 1,                        /* Specify the maximum folder depth used for checking JavaScript files from 'node_modules'. Only applicable with 'allowJs'. */
+
+    /* Emit */
+    // "declaration": true,                              /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
+    // "declarationMap": true,                           /* Create sourcemaps for d.ts files. */
+    // "emitDeclarationOnly": true,                      /* Only output d.ts files and not JavaScript files. */
+    // "sourceMap": true,                                /* Create source map files for emitted JavaScript files. */
+    // "inlineSourceMap": true,                          /* Include sourcemap files inside the emitted JavaScript. */
+    // "noEmit": true,                                   /* Disable emitting files from a compilation. */
+    // "outFile": "./",                                  /* Specify a file that bundles all outputs into one JavaScript file. If 'declaration' is true, also designates a file that bundles all .d.ts output. */
+     "outDir": "./dist",                                   /* Specify an output folder for all emitted files. */
+    // "removeComments": true,                           /* Disable emitting comments. */
+    // "importHelpers": true,                            /* Allow importing helper functions from tslib once per project, instead of including them per-file. */
+    // "downlevelIteration": true,                       /* Emit more compliant, but verbose and less performant JavaScript for iteration. */
+    // "sourceRoot": "",                                 /* Specify the root path for debuggers to find the reference source code. */
+    // "mapRoot": "",                                    /* Specify the location where debugger should locate map files instead of generated locations. */
+    // "inlineSources": true,                            /* Include source code in the sourcemaps inside the emitted JavaScript. */
+    // "emitBOM": true,                                  /* Emit a UTF-8 Byte Order Mark (BOM) in the beginning of output files. */
+    // "newLine": "crlf",                                /* Set the newline character for emitting files. */
+    // "stripInternal": true,                            /* Disable emitting declarations that have '@internal' in their JSDoc comments. */
+    // "noEmitHelpers": true,                            /* Disable generating custom helper functions like '__extends' in compiled output. */
+    // "noEmitOnError": true,                            /* Disable emitting files if any type checking errors are reported. */
+    // "preserveConstEnums": true,                       /* Disable erasing 'const enum' declarations in generated code. */
+    // "declarationDir": "./",                           /* Specify the output directory for generated declaration files. */
+
+    /* Interop Constraints */
+    // "isolatedModules": true,                          /* Ensure that each file can be safely transpiled without relying on other imports. */
+    // "verbatimModuleSyntax": true,                     /* Do not transform or elide any imports or exports not marked as type-only, ensuring they are written in the output file's format based on the 'module' setting. */
+    // "isolatedDeclarations": true,                     /* Require sufficient annotation on exports so other tools can trivially generate declaration files. */
+    // "allowSyntheticDefaultImports": true,             /* Allow 'import x from y' when a module doesn't have a default export. */
+    "esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
+    // "preserveSymlinks": true,                         /* Disable resolving symlinks to their realpath. This correlates to the same flag in node. */
+    "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
+
+    /* Type Checking */
+    "strict": true,                                      /* Enable all strict type-checking options. */
+    // "noImplicitAny": true,                            /* Enable error reporting for expressions and declarations with an implied 'any' type. */
+    // "strictNullChecks": true,                         /* When type checking, take into account 'null' and 'undefined'. */
+    // "strictFunctionTypes": true,                      /* When assigning functions, check to ensure parameters and the return values are subtype-compatible. */
+    // "strictBindCallApply": true,                      /* Check that the arguments for 'bind', 'call', and 'apply' methods match the original function. */
+    // "strictPropertyInitialization": true,             /* Check for class properties that are declared but not set in the constructor. */
+    // "strictBuiltinIteratorReturn": true,              /* Built-in iterators are instantiated with a 'TReturn' type of 'undefined' instead of 'any'. */
+    // "noImplicitThis": true,                           /* Enable error reporting when 'this' is given the type 'any'. */
+    // "useUnknownInCatchVariables": true,               /* Default catch clause variables as 'unknown' instead of 'any'. */
+    // "alwaysStrict": true,                             /* Ensure 'use strict' is always emitted. */
+    // "noUnusedLocals": true,                           /* Enable error reporting when local variables aren't read. */
+    // "noUnusedParameters": true,                       /* Raise an error when a function parameter isn't read. */
+    // "exactOptionalPropertyTypes": true,               /* Interpret optional property types as written, rather than adding 'undefined'. */
+    // "noImplicitReturns": true,                        /* Enable error reporting for codepaths that do not explicitly return in a function. */
+    // "noFallthroughCasesInSwitch": true,               /* Enable error reporting for fallthrough cases in switch statements. */
+    // "noUncheckedIndexedAccess": true,                 /* Add 'undefined' to a type when accessed using an index. */
+    // "noImplicitOverride": true,                       /* Ensure overriding members in derived classes are marked with an override modifier. */
+    // "noPropertyAccessFromIndexSignature": true,       /* Enforces using indexed accessors for keys declared using an indexed type. */
+    // "allowUnusedLabels": true,                        /* Disable error reporting for unused labels. */
+    // "allowUnreachableCode": true,                     /* Disable error reporting for unreachable code. */
+
+    /* Completeness */
+    // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
+    "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+
+=====================
+
+

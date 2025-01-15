@@ -7,7 +7,8 @@
     "dev": "ts-node -r tsconfig-paths/register src/index.ts serve",
     "build": "tsc",
     "migrate": "ts-node -r tsconfig-paths/register src/index.ts migrate",
-    "migrate:down": "ts-node -r tsconfig-paths/register src/index.ts migrate --direction down"
+    "migrate:down": "ts-node -r tsconfig-paths/register src/index.ts migrate --direction down",
+    "migration:create": "ts-node -r tsconfig-paths/register src/index.ts create:migration"
   },
   "_moduleAliases": {
     "@": "dist"

@@ -1,4 +1,4 @@
-import { injectable } from 'tsyringe';
+import {inject, injectable} from 'tsyringe';
 import { Repository, DataSource } from 'typeorm';
 import { User } from '@/domain/entities/user.entity';
 import { UserRepository } from '@/domain/repositories/user.repository';
@@ -7,7 +7,7 @@ import { UserRepository } from '@/domain/repositories/user.repository';
 export class UserRepositoryImpl implements UserRepository {
     private repository: Repository<User>;
 
-    constructor(dataSource: DataSource) {
+    constructor(@inject('DataSource') dataSource: DataSource) {
         this.repository = dataSource.getRepository(User);
     }
 
