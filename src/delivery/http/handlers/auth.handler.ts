@@ -11,7 +11,7 @@ export class AuthHandler {
         try {
             const { email, password } = req.body;
             const userAgent = req.headers['user-agent'] || '';
-            const ipAddress = req.ip;
+            const ipAddress = req.ip || '';
 
             // Get location from headers or set default
             const latitude = req.headers['x-latitude'] as string || '0';

@@ -1,12 +1,3 @@
-=====================
-auth-service-codes.txt
-auth-service-codes.txt
-=====================
-
-"auth-service-codes.txt" is not a text file (MIME type: inode/x-empty)
-
-=====================
-
 
 =====================
 1678901234567-create-users.sql
@@ -139,6 +130,48 @@ package.json
   }
 }
 
+=====================
+
+
+=====================
+container.ts
+src/config/container.ts
+=====================
+// src/config/container.ts
+import { container } from 'tsyringe';
+import { DataSource } from 'typeorm';
+import { Redis } from 'ioredis';
+import { UserRepository } from '@/domain/repositories/user.repository';
+import { UserRepositoryImpl } from '@/repository/user.repository';
+import { SessionRepository } from '@/domain/repositories/session.repository';
+import { SessionRepositoryImpl } from '@/repository/session.repository';
+import { RBACRepository } from '@/domain/repositories/rbac.repository';
+import { RBACRepositoryImpl } from '@/repository/rbac.repository';
+import { LoginUseCase } from '@/usecase/auth/login.usecase';
+import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
+
+export function setupContainer() {
+    // Database
+    const dataSource = new DataSource({
+        // database configuration
+    });
+
+    // Redis
+    const redis = new Redis({
+        // redis configuration
+    });
+
+    // Repositories
+    container.registerInstance('DataSource', dataSource);
+    container.registerInstance('Redis', redis);
+    container.registerSingleton<UserRepository>('UserRepository', UserRepositoryImpl);
+    container.registerSingleton<SessionRepository>('SessionRepository', SessionRepositoryImpl);
+    container.registerSingleton<RBACRepository>('RBACRepository', RBACRepositoryImpl);
+
+    // Use Cases
+    container.registerSingleton(LoginUseCase);
+    container.registerSingleton(ValidateTokenUseCase);
+}
 =====================
 
 
@@ -399,6 +432,154 @@ export class Server {
 
 
 =====================
+auth.handler.ts
+src/delivery/http/handlers/auth.handler.ts
+=====================
+import { Request, Response } from 'express';
+import { injectable } from 'tsyringe';
+import { LoginUseCase } from '@/usecase/auth/login.usecase';
+import { AuthError } from '@/utils/errors';
+
+@injectable()
+export class AuthHandler {
+    constructor(private loginUseCase: LoginUseCase) {}
+
+    async login(req: Request, res: Response): Promise<void> {
+        try {
+            const { email, password } = req.body;
+            const userAgent = req.headers['user-agent'] || '';
+            const ipAddress = req.ip;
+
+            // Get location from headers or set default
+            const latitude = req.headers['x-latitude'] as string || '0';
+            const longitude = req.headers['x-longitude'] as string || '0';
+
+            const session = await this.loginUseCase.execute({
+                email,
+                password,
+                userAgent,
+                ipAddress,
+                latitude,
+                longitude
+            });
+
+            res.status(200).json({
+                status: 'success',
+                data: {
+                    accessToken: session.accessToken,
+                    refreshToken: session.refreshToken,
+                    expiresIn: session.accessTokenExpiredAt,
+                    tokenType: 'Bearer'
+                }
+            });
+        } catch (error) {
+            if (error instanceof AuthError) {
+                res.status(401).json({
+                    status: 'error',
+                    message: error.message
+                });
+                return;
+            }
+
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error'
+            });
+        }
+    }
+}
+=====================
+
+
+=====================
+error.handler.ts
+src/delivery/http/middlewares/error.handler.ts
+=====================
+// src/delivery/http/middlewares/error.handler.ts
+import { Request, Response, NextFunction } from 'express';
+import { Logger } from '@/utils/logger';
+
+export const errorHandler = (
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+): void => {
+    Logger.error('Error handling request:', err);
+
+    res.status(500).json({
+        status: 'error',
+        message: 'Internal server error'
+    });
+};
+=====================
+
+
+=====================
+request.logger.ts
+src/delivery/http/middlewares/request.logger.ts
+=====================
+// src/delivery/http/middlewares/request.logger.ts
+import { Request, Response, NextFunction } from 'express';
+import { Logger } from '@/utils/logger';
+
+export const requestLogger = (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): void => {
+    Logger.info(`${req.method} ${req.path}`, {
+        body: req.body,
+        query: req.query,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+    });
+    next();
+};
+=====================
+
+
+=====================
+auth.route.ts
+src/delivery/http/routes/auth.route.ts
+=====================
+// src/delivery/http/routes/auth.route.ts
+import { Router } from 'express';
+import { container } from 'tsyringe';
+import { AuthHandler } from '../handlers/auth.handler';
+import { validateLoginRequest } from '../middlewares/validators/auth.validator';
+
+export const authRouter = Router();
+const authHandler = container.resolve(AuthHandler);
+
+authRouter.post('/login', validateLoginRequest, (req, res) => authHandler.login(req, res));
+=====================
+
+
+=====================
+index.ts
+src/delivery/http/routes/index.ts
+=====================
+// src/delivery/http/routes/index.ts
+import { Router } from 'express';
+import { authRouter } from './auth.route';
+import { errorHandler } from '../middlewares/error.handler';
+import { requestLogger } from '../middlewares/request.logger';
+
+export const setupRoutes = (app: Router): void => {
+    // Middlewares
+    app.use(requestLogger);
+
+    // Routes
+    app.use('/api/v1/auth', authRouter);
+
+    // Error Handler
+    app.use(errorHandler);
+};
+=====================
+
+
+=====================
 action.entity.ts
 src/domain/entities/action.entity.ts
 =====================
@@ -428,12 +609,36 @@ export class Resource {
 
 
 =====================
-role-resource-action.entity.ts
-src/domain/entities/role-resource-action.entity.ts
+roleResourceAction.entity.ts
+src/domain/entities/roleResourceAction.entity.ts
 =====================
+import { Entity, Column, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Role } from '@/utils/constants';
+import { Resource } from './resource.entity';
+import { Action } from './action.entity';
 
-"role-resource-action.entity.ts" is not a text file (MIME type: cannot open `src/domain/entities/role-resource-action.entity.ts' (No such file or directory))
+@Entity('role_resource_actions')
+export class RoleResourceAction {
+    @PrimaryColumn({
+        type: 'enum',
+        enum: Role
+    })
+    role!: Role;
 
+    @PrimaryColumn()
+    resource!: string;
+
+    @PrimaryColumn()
+    action!: string;
+
+    @ManyToOne(() => Resource)
+    @JoinColumn({ name: 'resource' })
+    resourceRef!: Resource;
+
+    @ManyToOne(() => Action)
+    @JoinColumn({ name: 'action' })
+    actionRef!: Action;
+}
 =====================
 
 
@@ -569,6 +774,24 @@ export interface RBACRepository {
 
 
 =====================
+session.repository.ts
+src/domain/repositories/session.repository.ts
+=====================
+import { Session } from '../entities/session.entity';
+import { TokenType } from '@/utils/constants';
+
+export interface SessionRepository {
+    create(session: Session): Promise<Session>;
+    findByToken(tokenType: TokenType, token: string): Promise<Session | null>;
+    findById(id: number): Promise<Session | null>;
+    findByUserId(userId: number): Promise<Session[]>;
+    delete(id: number): Promise<void>;
+    deleteByUserId(userId: number): Promise<void>;
+}
+=====================
+
+
+=====================
 user.repository.ts
 src/domain/repositories/user.repository.ts
 =====================
@@ -613,6 +836,269 @@ program
     });
 
 program.parse();
+=====================
+
+
+=====================
+rbac.repository.ts
+src/repository/rbac.repository.ts
+=====================
+// src/repository/rbac.repository.ts
+import { injectable } from 'tsyringe';
+import { Repository, DataSource } from 'typeorm';
+import { Redis } from 'ioredis';
+import {DEFAULT_ACTIONS, DEFAULT_RESOURCES, Role} from '@/utils/constants';
+import { Resource } from '@/domain/entities/resource.entity';
+import { Action } from '@/domain/entities/action.entity';
+import { RoleResourceAction } from '@/domain/entities/roleResourceAction.entity';
+import { RBACRepository, Permission } from '@/domain/repositories/rbac.repository';
+
+@injectable()
+export class RBACRepositoryImpl implements RBACRepository {
+    private resourceRepo: Repository<Resource>;
+    private actionRepo: Repository<Action>;
+    private rraRepo: Repository<RoleResourceAction>;
+    private RBAC_PERMISSION_CACHE_KEY = 'cache:object:rbac:permission';
+
+    constructor(
+        dataSource: DataSource,
+        private redis: Redis
+    ) {
+        this.resourceRepo = dataSource.getRepository(Resource);
+        this.actionRepo = dataSource.getRepository(Action);
+        this.rraRepo = dataSource.getRepository(RoleResourceAction);
+    }
+
+    async createResource(resource: string): Promise<void> {
+        const res = new Resource();
+        res.id = resource;
+        await this.resourceRepo.save(res);
+        await this.redis.del(this.RBAC_PERMISSION_CACHE_KEY);
+    }
+
+    async createAction(action: string): Promise<void> {
+        const act = new Action();
+        act.id = action;
+        await this.actionRepo.save(act);
+        await this.redis.del(this.RBAC_PERMISSION_CACHE_KEY);
+    }
+
+    async createRoleResourceAction(role: Role, resource: string, action: string): Promise<void> {
+        const rra = new RoleResourceAction();
+        rra.role = role;
+        rra.resource = resource;
+        rra.action = action;
+        await this.rraRepo.save(rra);
+        await this.redis.del(this.RBAC_PERMISSION_CACHE_KEY);
+    }
+
+    async loadPermission(): Promise<Permission> {
+        const cachedPermission = await this.redis.get(this.RBAC_PERMISSION_CACHE_KEY);
+        if (cachedPermission) {
+            return JSON.parse(cachedPermission);
+        }
+
+        const permissions = await this.rraRepo.find();
+        const permissionMap = new Map<Role, Array<{ resource: string; action: string }>>();
+
+        permissions.forEach(permission => {
+            const rolePermissions = permissionMap.get(permission.role) || [];
+            rolePermissions.push({
+                resource: permission.resource,
+                action: permission.action
+            });
+            permissionMap.set(permission.role, rolePermissions);
+        });
+
+        const permission: Permission = {
+            RRA: permissionMap
+        };
+
+        await this.redis.set(
+            this.RBAC_PERMISSION_CACHE_KEY,
+            JSON.stringify(permission),
+            'EX',
+            3600
+        );
+
+        return permission;
+    }
+
+    async hasPermission(role: Role, resource: string, action: string): Promise<boolean> {
+        const permission = await this.loadPermission();
+        const rolePermissions = permission.RRA.get(role) || [];
+
+        return rolePermissions.some(
+            rra => rra.resource === resource && rra.action === action
+        );
+    }
+
+    async initializeDefaultPermissions(): Promise<void> {
+        // Create default resources
+        for (const resource of Object.values(DEFAULT_RESOURCES)) {
+            await this.createResource(resource);
+        }
+
+        // Create default actions
+        for (const action of Object.values(DEFAULT_ACTIONS)) {
+            await this.createAction(action);
+        }
+
+        // Create default role-resource-actions
+        const defaultPermissions = [
+            // Admin permissions
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.CREATE },
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.READ },
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.UPDATE },
+            { role: Role.ADMIN, resource: DEFAULT_RESOURCES.USER, action: DEFAULT_ACTIONS.DELETE },
+
+            // Manager permissions
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.EMPLOYEE, action: DEFAULT_ACTIONS.READ },
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.READ },
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.APPROVE },
+            { role: Role.MANAGER, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.REJECT },
+
+            // Employee permissions
+            { role: Role.EMPLOYEE, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.SUBMIT },
+            { role: Role.EMPLOYEE, resource: DEFAULT_RESOURCES.ATTENDANCE, action: DEFAULT_ACTIONS.READ },
+        ];
+
+        for (const perm of defaultPermissions) {
+            await this.createRoleResourceAction(perm.role, perm.resource, perm.action);
+        }
+    }
+}
+=====================
+
+
+=====================
+session.repository.ts
+src/repository/session.repository.ts
+=====================
+// src/repository/session.repository.ts
+import { injectable } from 'tsyringe';
+import { Repository, DataSource } from 'typeorm';
+import { Redis } from 'ioredis';
+import { Session } from '@/domain/entities/session.entity';
+import { SessionRepository } from '@/domain/repositories/session.repository';
+import { TokenType } from '@/utils/constants';
+
+@injectable()
+export class SessionRepositoryImpl implements SessionRepository {
+    private repository: Repository<Session>;
+
+    constructor(
+        dataSource: DataSource,
+        private redis: Redis
+    ) {
+        this.repository = dataSource.getRepository(Session);
+    }
+
+    async create(session: Session): Promise<Session> {
+        const savedSession = await this.repository.save(session);
+        await this.cacheSession(savedSession);
+        return savedSession;
+    }
+
+    async findByToken(tokenType: TokenType, token: string): Promise<Session | null> {
+        const cacheKey = Session.newSessionTokenCacheKey(token);
+        const cachedSession = await this.redis.get(cacheKey);
+
+        if (cachedSession) {
+            return JSON.parse(cachedSession);
+        }
+
+        const session = await this.repository.findOne({
+            where: tokenType === TokenType.ACCESS_TOKEN
+                ? { accessToken: token }
+                : { refreshToken: token }
+        });
+
+        if (session) {
+            await this.cacheSession(session);
+        }
+
+        return session;
+    }
+
+    private async cacheSession(session: Session): Promise<void> {
+        const cacheKey = Session.newSessionTokenCacheKey(session.accessToken);
+        await this.redis.set(cacheKey, JSON.stringify(session), 'EX', 3600); // 1 hour
+    }
+
+    delete(id: number): Promise<void> {
+        return Promise.resolve(undefined);
+    }
+
+    deleteByUserId(userId: number): Promise<void> {
+        return Promise.resolve(undefined);
+    }
+
+    async findById(id: number): Promise<Session | null> {
+        const cacheKey = Session.newSessionTokenCacheKeyByID(id);
+        const cachedSession = await this.redis.get(cacheKey);
+
+        if (cachedSession) {
+            return JSON.parse(cachedSession);
+        }
+
+        const session = await this.repository.findOne({
+            where: {id : id}
+        });
+
+        if (session) {
+            await this.cacheSession(session);
+        }
+
+        return session;
+    }
+
+    findByUserId(userId: number): Promise<Session[]> {
+        return Promise.resolve([]);
+    }
+
+}
+=====================
+
+
+=====================
+user.repository.ts
+src/repository/user.repository.ts
+=====================
+import { injectable } from 'tsyringe';
+import { Repository, DataSource } from 'typeorm';
+import { User } from '@/domain/entities/user.entity';
+import { UserRepository } from '@/domain/repositories/user.repository';
+
+@injectable()
+export class UserRepositoryImpl implements UserRepository {
+    private repository: Repository<User>;
+
+    constructor(dataSource: DataSource) {
+        this.repository = dataSource.getRepository(User);
+    }
+
+    async create(user: User): Promise<User> {
+        return await this.repository.save(user);
+    }
+
+    async findById(id: number): Promise<User | null> {
+        return await this.repository.findOneBy({ id });
+    }
+
+    async findByEmail(email: string): Promise<User | null> {
+        return await this.repository.findOneBy({ email });
+    }
+
+    async update(id: number, userData: Partial<User>): Promise<User> {
+        await this.repository.update(id, userData);
+        return (await this.findById(id))!;
+    }
+
+    async delete(id: number): Promise<void> {
+        await this.repository.delete(id);
+    }
+}
 =====================
 
 
@@ -791,4 +1277,37 @@ export const defaultPermissions = [
     { role: Role.EMPLOYEE, resource: Resource.ATTENDANCE, action: Action.SUBMIT },
     { role: Role.EMPLOYEE, resource: Resource.ATTENDANCE, action: Action.READ },
 ];
+=====================
+
+
+=====================
+errors.ts
+src/utils/errors.ts
+=====================
+export class AuthError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'AuthError';
+    }
+}
+
+export class PermissionError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'PermissionError';
+    }
+}
+=====================
+
+
+=====================
+token.ts
+src/utils/token.ts
+=====================
+// src/utils/token.ts
+import { randomBytes } from 'crypto';
+
+export function generateToken(length: number = 32): string {
+    return randomBytes(length).toString('hex');
+}
 =====================

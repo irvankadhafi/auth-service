@@ -1,53 +1,67 @@
-import { injectable } from 'tsyringe';
-import { compare } from 'bcrypt';
+import { inject, injectable } from 'tsyringe';
+import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { SessionRepository } from '@/domain/repositories/session.repository';
+import { RBACRepository } from '@/domain/repositories/rbac.repository';
+import { LoginRequest, LoginResponse } from '@/domain/usecases/auth.usecase';
 import { Session } from '@/domain/entities/session.entity';
-import { generateToken } from '@/utils/token';
 import { AuthError } from '@/utils/errors';
-
-interface LoginDTO {
-    email: string;
-    password: string;
-    userAgent: string;
-    ipAddress: string;
-    latitude: string;
-    longitude: string;
-}
 
 @injectable()
 export class LoginUseCase {
     constructor(
-        private userRepository: UserRepository,
-        private sessionRepository: SessionRepository
+        @inject('UserRepository') private userRepo: UserRepository,
+        @inject('SessionRepository') private sessionRepo: SessionRepository,
+        @inject('RBACRepository') private rbacRepo: RBACRepository
     ) {}
 
-    async execute(data: LoginDTO): Promise<Session> {
-        const user = await this.userRepository.findByEmail(data.email);
+    async execute(req: LoginRequest): Promise<LoginResponse> {
+        // Find user
+        const user = await this.userRepo.findByEmail(req.email);
         if (!user) {
-            throw new AuthError('Invalid credentials');
+            throw new AuthError('Invalid email or password');
         }
 
-        const isValidPassword = await compare(data.password, user.password);
+        // Validate password
+        const isValidPassword = await bcrypt.compare(req.password, user.password);
         if (!isValidPassword) {
-            throw new AuthError('Invalid credentials');
+            throw new AuthError('Invalid email or password');
         }
 
-        if (!user.isActive) {
-            throw new AuthError('User is inactive');
-        }
+        // Generate tokens
+        const accessToken = randomBytes(32).toString('hex');
+        const refreshToken = randomBytes(32).toString('hex');
 
+        // Create session
+        const now = new Date();
         const session = new Session();
         session.userId = user.id;
-        session.accessToken = generateToken();
-        session.refreshToken = generateToken();
-        session.accessTokenExpiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-        session.refreshTokenExpiredAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-        session.userAgent = data.userAgent;
-        session.ipAddress = data.ipAddress;
-        session.latitude = data.latitude;
-        session.longitude = data.longitude;
+        session.accessToken = accessToken;
+        session.refreshToken = refreshToken;
+        session.accessTokenExpiredAt = new Date(now.getTime() + 1 * 60 * 60 * 1000); // 1 hour
+        session.refreshTokenExpiredAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+        session.userAgent = req.userAgent || '';
+        session.ipAddress = req.ipAddress || '';
+        session.latitude = req.latitude || '';
+        session.longitude = req.longitude || '';
+        session.createdAt = now;
+        session.updatedAt = now;
 
-        return await this.sessionRepository.create(session);
+        await this.sessionRepo.create(session);
+
+        // Load permissions
+        const permissions = await this.rbacRepo.loadPermission();
+
+        return {
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role
+            },
+            expiresIn: session.accessTokenExpiredAt.getTime()
+        };
     }
 }

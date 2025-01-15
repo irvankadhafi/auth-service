@@ -8,7 +8,7 @@ export class Config {
     }
 
     static get DATABASE_URL(): string {
-        return process.env.DATABASE_URL || 'postgresql://localhost:5432/auth_db';
+        return process.env.DATABASE_URL || 'postgresql://auth_user:auth123@localhost:5432/auth_db';
     }
 
     static get REDIS_URL(): string {

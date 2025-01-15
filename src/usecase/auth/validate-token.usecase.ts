@@ -1,42 +1,45 @@
-// src/usecase/auth/validate-token.usecase.ts
-import { injectable } from 'tsyringe';
-import { SessionRepository } from '@/domain/repositories/session.repository';
-import { UserRepository } from '@/domain/repositories/user.repository';
-import { RBACRepository } from '@/domain/repositories/rbac.repository';
-import { TokenType, Resource, Action } from '@/utils/constants';
-import { AuthError } from '@/utils/errors';
-
-interface ValidateTokenResponse {
-    userId: number;
-    role: string;
-    permissions: string[];
-}
+import {inject, injectable} from 'tsyringe';
+import {SessionRepository} from '@/domain/repositories/session.repository';
+import {RBACRepository} from '@/domain/repositories/rbac.repository';
+import {ValidateTokenResponse} from '@/domain/usecases/auth.usecase';
+import {AuthError} from '@/utils/errors';
+import {TokenType} from "@/utils/constants";
 
 @injectable()
 export class ValidateTokenUseCase {
     constructor(
-        private sessionRepository: SessionRepository,
-        private userRepository: UserRepository,
-        private rbacRepository: RBACRepository
+        @inject('SessionRepository') private sessionRepo: SessionRepository,
+        @inject('RBACRepository') private rbacRepo: RBACRepository
     ) {}
 
     async execute(token: string): Promise<ValidateTokenResponse> {
-        const session = await this.sessionRepository.findByToken(TokenType.ACCESS_TOKEN, token);
-        if (!session || session.isAccessTokenExpired()) {
-            throw new AuthError('Invalid or expired token');
+        // Find session
+        const session = await this.sessionRepo.findByToken(TokenType.ACCESS_TOKEN, token);
+        if (!session) {
+            throw new AuthError('Invalid token');
         }
 
-        const user = await this.userRepository.findById(session.userId);
-        if (!user || !user.isActive) {
-            throw new AuthError('User not found or inactive');
+        // Check if token is expired
+        if (session.isAccessTokenExpired()) {
+            throw new AuthError('Token expired');
         }
 
-        const permissions = await this.rbacRepository.getRolePermissions(user.role);
+        // Load user permissions
+        const permissions = await this.rbacRepo.loadPermission();
+        const userPermissions = permissions.RRA.get(session.role) || [];
+
+        // Transform permissions to map for easier access
+        const permissionMap = new Map<string, string[]>();
+        userPermissions.forEach(({ resource, action }) => {
+            const actions = permissionMap.get(resource) || [];
+            actions.push(action);
+            permissionMap.set(resource, actions);
+        });
 
         return {
-            userId: user.id,
-            role: user.role,
-            permissions: permissions.map(p => `${p.resource}:${p.action}`)
+            userId: session.userId,
+            role: session.role,
+            permissions: permissionMap
         };
     }
 }

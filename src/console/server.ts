@@ -21,8 +21,8 @@ import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
 
 export class Server {
     private httpServer: express.Application;
-    private dataSource: DataSource;
-    private redis: Redis;
+    private dataSource!: DataSource;
+    private redis!: Redis;
     private logger: typeof Logger;
 
     constructor() {
