@@ -1,50 +1,26 @@
-import { injectable } from 'tsyringe';
-import { Repository } from 'typeorm';
-import { AppDataSource } from '@/config/database';
-import { RoleResourceAction } from '../entities/role-resource-action.entity';
-import { Resource } from '../entities/resource.entity';
-import { Action } from '../entities/action.entity';
+// import { Role, Resource, Action } from '@/utils/constants';
+// import { RoleResourceAction } from '../entities/role-resource-action.entity';
+//
+// export interface RBACRepository {
+//     createPermission(rra: RoleResourceAction): Promise<void>;
+//     hasPermission(role: Role, resource: Resource, action: Action): Promise<boolean>;
+//     getRolePermissions(role: Role): Promise<RoleResourceAction[]>;
+//     loadPermission(): Promise<{ RRA: Map<Role, Array<{ Resource: Resource; Action: Action }>> }>;
+//     initializeDefaultPermissions(): Promise<void>;
+// }
+//
+// // src/domain/repositories/rbac.repository.ts
+import { Role } from '@/utils/constants';
 
-@injectable()
-export class RBACRepository {
-    private rraRepository: Repository<RoleResourceAction>;
-    private resourceRepository: Repository<Resource>;
-    private actionRepository: Repository<Action>;
+export interface Permission {
+    RRA: Map<Role, Array<{ resource: string; action: string }>>;
+}
 
-    constructor() {
-        this.rraRepository = AppDataSource.getRepository(RoleResourceAction);
-        this.resourceRepository = AppDataSource.getRepository(Resource);
-        this.actionRepository = AppDataSource.getRepository(Action);
-    }
-
-    async createRoleResourceAction(role: string, resourceId: string, actionId: string): Promise<void> {
-        const resource = await this.resourceRepository.findOneBy({ id: resourceId });
-        const action = await this.actionRepository.findOneBy({ id: actionId });
-
-        if (!resource || !action) {
-            throw new Error('Resource or Action not found');
-        }
-
-        const rra = new RoleResourceAction(role, resource, action);
-        await this.rraRepository.save(rra);
-    }
-
-    async getRolePermissions(role: string): Promise<RoleResourceAction[]> {
-        return this.rraRepository.find({
-            where: { role },
-            relations: ['resource', 'action']
-        });
-    }
-
-    async hasPermission(role: string, resourceId: string, actionId: string): Promise<boolean> {
-        const permission = await this.rraRepository.findOne({
-            where: {
-                role,
-                resource: { id: resourceId },
-                action: { id: actionId }
-            }
-        });
-
-        return !!permission;
-    }
+export interface RBACRepository {
+    createResource(resource: string): Promise<void>;
+    createAction(action: string): Promise<void>;
+    createRoleResourceAction(role: Role, resource: string, action: string): Promise<void>;
+    loadPermission(): Promise<Permission>;
+    hasPermission(role: Role, resource: string, action: string): Promise<boolean>;
+    initializeDefaultPermissions(): Promise<void>;
 }

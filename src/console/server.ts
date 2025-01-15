@@ -1,35 +1,92 @@
-import { Server, ServerCredentials } from '@grpc/grpc-js';
+// src/console/server.ts
 import express from 'express';
-import { ApolloServer } from 'apollo-server-express';
+import { createServer } from 'http';
 import { container } from 'tsyringe';
-import { Config } from '../config/constants';
-import { Logger } from '../utils/logger';
-import { authServiceHandlers } from '../infrastructure/grpc/implementations';
-import { AuthServiceService } from '../infrastructure/grpc/proto/auth_grpc_pb';
-import { setupRoutes } from '../delivery/http/routes';
-import { schema } from '../delivery/http/graphql/schema';
 import { DataSource } from 'typeorm';
-import { RedisClient } from '../infrastructure/redis/redis-client';
+import Redis from 'ioredis';
+import { Logger } from '@/utils/logger';
+import { Config } from '@/config';
+import { setupRoutes } from '@/delivery/http/routes';
+// import { setupGraphQL } from '@/delivery/graphql';
+// import { setupGRPC } from '@/delivery/grpc';
 
-export class ServerConsole {
+// Repositories
+import { UserRepositoryImpl } from '@/repository/user.repository';
+import { SessionRepositoryImpl } from '@/repository/session.repository';
+import { RBACRepositoryImpl } from '@/repository/rbac.repository';
+
+// Use Cases
+import { LoginUseCase } from '@/usecase/auth/login.usecase';
+import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
+
+export class Server {
     private httpServer: express.Application;
-    private grpcServer: Server;
-    private apolloServer: ApolloServer;
-    private isShuttingDown = false;
+    private dataSource: DataSource;
+    private redis: Redis;
+    private logger: typeof Logger;
 
-    constructor(
-        private logger: Logger,
-        private dataSource: DataSource,
-        private redisClient: RedisClient
-    ) {
+    constructor() {
         this.httpServer = express();
-        this.grpcServer = new Server();
+        this.logger = Logger;
+    }
+
+    async initialize(): Promise<void> {
+        await this.setupDatabase();
+        await this.setupRedis();
+        await this.setupDependencyInjection();
+    }
+
+    private async setupDatabase(): Promise<void> {
+        this.dataSource = new DataSource({
+            type: 'postgres',
+            url: Config.DATABASE_URL,
+            entities: ['src/domain/entities/*.entity.ts'],
+            synchronize: false,
+            logging: true
+        });
+
+        await this.dataSource.initialize();
+        this.logger.info('Database connected successfully');
+    }
+
+    private async setupRedis(): Promise<void> {
+        this.redis = new Redis(Config.REDIS_URL);
+        this.logger.info('Redis connected successfully');
+    }
+
+    private async setupDependencyInjection(): Promise<void> {
+        // Register instances
+        container.registerInstance('DataSource', this.dataSource);
+        container.registerInstance('Redis', this.redis);
+        container.registerInstance('Logger', this.logger);
+
+        // Register repositories
+        container.registerSingleton('UserRepository', UserRepositoryImpl);
+        container.registerSingleton('SessionRepository', SessionRepositoryImpl);
+        container.registerSingleton('RBACRepository', RBACRepositoryImpl);
+
+        // Register use cases
+        container.registerSingleton(LoginUseCase);
+        container.registerSingleton(ValidateTokenUseCase);
+    }
+
+    async start(): Promise<void> {
+        await this.initialize();
+
+        // Setup delivery methods
+        await Promise.all([
+            this.setupHttp(),
+            // this.setupGraphQL(),
+            // this.setupGRPC()
+        ]);
+
+        this.setupGracefulShutdown();
     }
 
     private async setupHttp(): Promise<void> {
         const httpPort = Config.HTTP_PORT;
 
-        // Setup middlewares & routes
+        this.httpServer.use(express.json());
         setupRoutes(this.httpServer);
 
         return new Promise((resolve) => {
@@ -48,101 +105,22 @@ export class ServerConsole {
         });
     }
 
-    private async setupGraphql(): Promise<void> {
-        this.apolloServer = new ApolloServer({
-            schema,
-            context: ({ req }) => ({
-                req,
-                container
-            })
-        });
+    private setupGracefulShutdown(): void {
+        const shutdown = async () => {
+            this.logger.info('Shutting down...');
 
-        await this.apolloServer.start();
-        this.apolloServer.applyMiddleware({ app: this.httpServer });
+            try {
+                await this.redis.quit();
+                await this.dataSource.destroy();
+                this.logger.info('Connections closed');
+                process.exit(0);
+            } catch (error) {
+                this.logger.error('Error during shutdown:', error);
+                process.exit(1);
+            }
+        };
 
-        this.logger.info(`GraphQL Server running at /graphql`);
-    }
-
-    private async setupGrpc(): Promise<void> {
-        const grpcPort = Config.GRPC_PORT;
-
-        // Add services
-        this.grpcServer.addService(AuthServiceService, authServiceHandlers);
-
-        return new Promise((resolve, reject) => {
-            this.grpcServer.bindAsync(
-                `0.0.0.0:${grpcPort}`,
-                ServerCredentials.createInsecure(),
-                (error, port) => {
-                    if (error) {
-                        reject(error);
-                        return;
-                    }
-                    this.grpcServer.start();
-                    this.logger.info(`gRPC Server running on port ${port}`);
-                    resolve();
-                }
-            );
-        });
-    }
-
-    private async gracefulShutdown(): Promise<void> {
-        if (this.isShuttingDown) return;
-        this.isShuttingDown = true;
-
-        this.logger.info('Graceful shutdown initiated...');
-
-        try {
-            // Stop accepting new requests
-            this.grpcServer.tryShutdown(async () => {
-                this.logger.info('gRPC server shutdown complete');
-            });
-
-            // Close Apollo Server
-            await this.apolloServer.stop();
-            this.logger.info('GraphQL server shutdown complete');
-
-            // Close database connections
-            await this.dataSource.destroy();
-            this.logger.info('Database connections closed');
-
-            // Close Redis connections
-            await this.redisClient.quit();
-            this.logger.info('Redis connections closed');
-
-            this.logger.info('Graceful shutdown completed');
-            process.exit(0);
-        } catch (error) {
-            this.logger.error('Error during graceful shutdown:', error);
-            process.exit(1);
-        }
-    }
-
-    async run(): Promise<void> {
-        try {
-            // Initialize database connection
-            await this.dataSource.initialize();
-            this.logger.info('Database connection established');
-
-            // Initialize Redis connection
-            await this.redisClient.connect();
-            this.logger.info('Redis connection established');
-
-            // Setup all servers
-            await Promise.all([
-                this.setupHttp(),
-                this.setupGraphql(),
-                this.setupGrpc()
-            ]);
-
-            // Setup graceful shutdown
-            process.on('SIGTERM', this.gracefulShutdown.bind(this));
-            process.on('SIGINT', this.gracefulShutdown.bind(this));
-
-            this.logger.info('All servers started successfully');
-        } catch (error) {
-            this.logger.error('Failed to start servers', error);
-            throw error;
-        }
+        process.on('SIGTERM', shutdown);
+        process.on('SIGINT', shutdown);
     }
 }
