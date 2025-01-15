@@ -1,3 +1,4 @@
+// src/usecase/auth/login.usecase.ts
 import { inject, injectable } from 'tsyringe';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -24,9 +25,16 @@ export class LoginUseCase {
         }
 
         // Validate password
-        const isValidPassword = await bcrypt.compare(req.password, user.password);
+        const isValidPassword = await bcrypt.compare(req.password, user.password).catch(() => false);
         if (!isValidPassword) {
             throw new AuthError('Invalid email or password');
+        }
+
+        // Validate latitude and longitude
+        const latitude = req.latitude || '0';
+        const longitude = req.longitude || '0';
+        if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
+            throw new AuthError('Invalid location data');
         }
 
         // Generate tokens
@@ -43,8 +51,8 @@ export class LoginUseCase {
         session.refreshTokenExpiredAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
         session.userAgent = req.userAgent || '';
         session.ipAddress = req.ipAddress || '';
-        session.latitude = req.latitude || '';
-        session.longitude = req.longitude || '';
+        session.latitude = latitude;
+        session.longitude = longitude;
         session.createdAt = now;
         session.updatedAt = now;
 
@@ -59,9 +67,9 @@ export class LoginUseCase {
             user: {
                 id: user.id,
                 email: user.email,
-                role: user.role
+                role: user.role,
             },
-            expiresIn: session.accessTokenExpiredAt.getTime()
+            expiresIn: session.accessTokenExpiredAt.getTime(),
         };
     }
 }

@@ -17,14 +17,20 @@ export const migrateCommand = new Command('migrate')
                 type: 'postgres',
                 url: Config.DATABASE_URL,
                 entities: ['src/domain/entities/*.entity.ts'],
-                migrations: ['db/migration/*.ts'],
-                migrationsTableName: 'schema_migrations'
+                migrations: ['db/migration/*.sql'], // Sesuaikan dengan format file migrasi
+                migrationsTableName: 'schema_migrations',
             });
 
             await dataSource.initialize();
 
             if (direction === 'down') {
-                await dataSource.undoLastMigration();
+                if (step > 0) {
+                    for (let i = 0; i < step; i++) {
+                        await dataSource.undoLastMigration();
+                    }
+                } else {
+                    await dataSource.undoLastMigration();
+                }
             } else {
                 await dataSource.runMigrations();
             }

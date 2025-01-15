@@ -8,7 +8,12 @@ export const errorHandler = (
     res: Response,
     next: NextFunction
 ): void => {
-    Logger.error('Error handling request:', err);
+    Logger.error('Error handling request:', {
+        message: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method
+    });
 
     res.status(500).json({
         status: 'error',

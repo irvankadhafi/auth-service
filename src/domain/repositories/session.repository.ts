@@ -8,4 +8,5 @@ export interface SessionRepository {
     findByUserId(userId: number): Promise<Session[]>;
     delete(id: number): Promise<void>;
     deleteByUserId(userId: number): Promise<void>;
+    refreshToken(oldSession: Session, newSession: Session): Promise<void>;
 }

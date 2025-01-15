@@ -1,5 +1,6 @@
 // src/domain/entities/session.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {Role} from "@/utils/constants";
 
 @Entity('sessions')
 export class Session {
@@ -38,6 +39,8 @@ export class Session {
 
     @UpdateDateColumn()
     updatedAt!: Date;
+
+    role!: Role;
 
     isAccessTokenExpired(): boolean {
         return new Date() > this.accessTokenExpiredAt;

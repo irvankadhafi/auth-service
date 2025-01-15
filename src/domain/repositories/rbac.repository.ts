@@ -1,15 +1,3 @@
-// import { Role, Resource, Action } from '@/utils/constants';
-// import { RoleResourceAction } from '../entities/role-resource-action.entity';
-//
-// export interface RBACRepository {
-//     createPermission(rra: RoleResourceAction): Promise<void>;
-//     hasPermission(role: Role, resource: Resource, action: Action): Promise<boolean>;
-//     getRolePermissions(role: Role): Promise<RoleResourceAction[]>;
-//     loadPermission(): Promise<{ RRA: Map<Role, Array<{ Resource: Resource; Action: Action }>> }>;
-//     initializeDefaultPermissions(): Promise<void>;
-// }
-//
-// // src/domain/repositories/rbac.repository.ts
 import { Role } from '@/utils/constants';
 
 export interface Permission {

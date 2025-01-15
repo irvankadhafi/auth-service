@@ -1,11 +1,12 @@
-import {inject, injectable} from 'tsyringe';
-import {randomBytes} from 'crypto';
-import {SessionRepository} from '@/domain/repositories/session.repository';
-import {UserRepository} from '@/domain/repositories/user.repository';
-import {LoginResponse} from '@/domain/usecases/auth.usecase';
-import {Session} from '@/domain/entities/session.entity';
-import {AuthError} from '@/utils/errors';
-import {TokenType} from "@/utils/constants";
+// src/usecase/auth/refresh-token.usecase.ts
+import { inject, injectable } from 'tsyringe';
+import { randomBytes } from 'crypto';
+import { SessionRepository } from '@/domain/repositories/session.repository';
+import { UserRepository } from '@/domain/repositories/user.repository';
+import { LoginResponse } from '@/domain/usecases/auth.usecase';
+import { Session } from '@/domain/entities/session.entity';
+import { AuthError } from '@/utils/errors';
+import { TokenType } from '@/utils/constants';
 
 @injectable()
 export class RefreshTokenUseCase {

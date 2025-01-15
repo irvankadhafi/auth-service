@@ -49,12 +49,17 @@ export class SessionRepositoryImpl implements SessionRepository {
         await this.redis.set(cacheKey, JSON.stringify(session), 'EX', 3600); // 1 hour
     }
 
-    delete(id: number): Promise<void> {
-        return Promise.resolve(undefined);
+    async delete(id: number): Promise<void> {
+        await this.repository.delete(id);
+        const cacheKey = Session.newSessionTokenCacheKeyByID(id);
+        await this.redis.del(cacheKey);
     }
 
-    deleteByUserId(userId: number): Promise<void> {
-        return Promise.resolve(undefined);
+    async deleteByUserId(userId: number): Promise<void> {
+        const sessions = await this.repository.find({ where: { userId } });
+        for (const session of sessions) {
+            await this.delete(session.id);
+        }
     }
 
     async findById(id: number): Promise<Session | null> {
@@ -66,7 +71,7 @@ export class SessionRepositoryImpl implements SessionRepository {
         }
 
         const session = await this.repository.findOne({
-            where: {id : id}
+            where: { id: id }
         });
 
         if (session) {
@@ -76,8 +81,16 @@ export class SessionRepositoryImpl implements SessionRepository {
         return session;
     }
 
-    findByUserId(userId: number): Promise<Session[]> {
-        return Promise.resolve([]);
+    async findByUserId(userId: number): Promise<Session[]> {
+        return await this.repository.find({ where: { userId } });
     }
 
+    // Implementasi refreshToken
+    async refreshToken(oldSession: Session, newSession: Session): Promise<void> {
+        // Hapus sesi lama
+        await this.delete(oldSession.id);
+
+        // Simpan sesi baru
+        await this.create(newSession);
+    }
 }
