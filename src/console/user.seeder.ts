@@ -63,10 +63,10 @@ export const userSeederCommand = new Command('seed:user')
 
             // Seed users
             for (const userData of usersToSeed) {
-                const hashedPassword = await bcrypt.hash(userData.password, 10);
+                // const hashedPassword = await bcrypt.hash(userData.password, 10);
                 const user = new User();
                 user.email = userData.email;
-                user.password = hashedPassword;
+                user.password = userData.password;
                 user.role = userData.role;
 
                 try {

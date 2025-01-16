@@ -1,5 +1,5 @@
 // src/repository/session.repository.ts
-import { injectable } from 'tsyringe';
+import {inject, injectable} from 'tsyringe';
 import { Repository, DataSource } from 'typeorm';
 import { Redis } from 'ioredis';
 import { Session } from '@/domain/entities/session.entity';
@@ -11,8 +11,8 @@ export class SessionRepositoryImpl implements SessionRepository {
     private repository: Repository<Session>;
 
     constructor(
-        dataSource: DataSource,
-        private redis: Redis
+        @inject('DataSource') dataSource: DataSource,
+        @inject('Redis') private redis: Redis
     ) {
         this.repository = dataSource.getRepository(Session);
     }

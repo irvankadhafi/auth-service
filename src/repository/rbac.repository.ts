@@ -54,7 +54,16 @@ export class RBACRepositoryImpl implements RBACRepository {
     async loadPermission(): Promise<Permission> {
         const cachedPermission = await this.redis.get(this.RBAC_PERMISSION_CACHE_KEY);
         if (cachedPermission) {
-            return JSON.parse(cachedPermission);
+            const parsed = JSON.parse(cachedPermission);
+            // Konversi object ke Map dengan tipe yang benar
+            const rraMap = new Map<Role, Array<{ resource: string; action: string }>>();
+
+            // Iterasi setiap entry dan konversi ke format yang benar
+            Object.entries(parsed.RRA).forEach(([role, permissions]) => {
+                rraMap.set(role as Role, permissions as Array<{ resource: string; action: string }>);
+            });
+
+            return { RRA: rraMap };
         }
 
         const permissions = await this.rraRepo.find();
@@ -69,18 +78,19 @@ export class RBACRepositoryImpl implements RBACRepository {
             permissionMap.set(permission.role, rolePermissions);
         });
 
-        const permission: Permission = {
-            RRA: permissionMap
+        // Konversi Map ke Object sebelum cache
+        const permissionObject = {
+            RRA: Object.fromEntries(permissionMap)
         };
 
         await this.redis.set(
             this.RBAC_PERMISSION_CACHE_KEY,
-            JSON.stringify(permission),
+            JSON.stringify(permissionObject),
             'EX',
             3600
         );
 
-        return permission;
+        return { RRA: permissionMap };
     }
 
     async hasPermission(role: Role, resource: string, action: string): Promise<boolean> {

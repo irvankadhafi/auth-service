@@ -34,10 +34,10 @@ export class Session {
     @Column({ name: 'ip_address' })
     ipAddress!: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'created_at' }) // Sesuaikan nama kolom
     createdAt!: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ name: 'updated_at' }) // Sesuaikan nama kolom
     updatedAt!: Date;
 
     role!: Role;
