@@ -136,4 +136,61 @@ export class RBACRepositoryImpl implements RBACRepository {
             await this.createRoleResourceAction(perm.role, perm.resource, perm.action);
         }
     }
+
+    async findPermissionsByRole(role: Role): Promise<Array<{ resource: string; action: string }>> {
+        // Cek cache terlebih dahulu
+        const cachedPermission = await this.redis.get(this.RBAC_PERMISSION_CACHE_KEY);
+        if (cachedPermission) {
+            const parsed = JSON.parse(cachedPermission);
+            const rraMap = new Map<Role, Array<{ resource: string; action: string }>>();
+
+            // Konversi cached data
+            Object.entries(parsed.RRA).forEach(([cachedRole, permissions]) => {
+                rraMap.set(cachedRole as Role, permissions as Array<{ resource: string; action: string }>);
+            });
+
+            // Ambil permissions untuk role yang diminta
+            const rolePermissions = rraMap.get(role);
+            if (rolePermissions) {
+                return rolePermissions;
+            }
+        }
+
+        // Jika tidak ada di cache, ambil dari database
+        const permissions = await this.rraRepo.find({
+            where: { role }
+        });
+
+        const result = permissions.map(p => ({
+            resource: p.resource,
+            action: p.action
+        }));
+
+        // Update cache dengan data baru
+        const allPermissions = await this.rraRepo.find();
+        const permissionMap = new Map<Role, Array<{ resource: string; action: string }>>();
+
+        allPermissions.forEach(permission => {
+            const rolePermissions = permissionMap.get(permission.role) || [];
+            rolePermissions.push({
+                resource: permission.resource,
+                action: permission.action
+            });
+            permissionMap.set(permission.role, rolePermissions);
+        });
+
+        // Simpan ke cache
+        const permissionObject = {
+            RRA: Object.fromEntries(permissionMap)
+        };
+
+        await this.redis.set(
+            this.RBAC_PERMISSION_CACHE_KEY,
+            JSON.stringify(permissionObject),
+            'EX',
+            3600
+        );
+
+        return result;
+    }
 }

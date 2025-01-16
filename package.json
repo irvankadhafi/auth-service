@@ -10,7 +10,8 @@
     "migrate:down": "ts-node -r tsconfig-paths/register src/index.ts migrate --direction down",
     "migration:create": "ts-node -r tsconfig-paths/register src/index.ts create:migration",
     "migrate:rbac": "ts-node -r tsconfig-paths/register src/index.ts migrate:rbac",
-    "seed:user": "ts-node -r tsconfig-paths/register src/index.ts seed:user"
+    "seed:user": "ts-node -r tsconfig-paths/register src/index.ts seed:user",
+    "proto:generate": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./src/proto --grpc_out=grpc_js:./src/proto --plugin=protoc-gen-grpc=./node_modules/.bin/grpc_tools_node_protoc_plugin --ts_out=grpc_js:./src/proto -I ./proto auth.proto"
   },
   "_moduleAliases": {
     "@": "dist"
@@ -20,10 +21,18 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@grpc/proto-loader": "^0.7.13",
+    "@protobuf-ts/grpc-transport": "^2.9.4",
+    "@protobuf-ts/plugin": "^2.9.4",
+    "@protobuf-ts/runtime": "^2.9.4",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/google-protobuf": "^3.15.12",
     "@types/node": "^22.10.5",
+    "google-protobuf": "^3.21.4",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "^1.12.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3"
@@ -32,7 +41,6 @@
     "@apollo/server": "^4.11.3",
     "@apollo/subgraph": "^2.9.3",
     "@grpc/grpc-js": "^1.12.5",
-    "@grpc/proto-loader": "^0.7.13",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",

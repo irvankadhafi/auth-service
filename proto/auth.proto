@@ -1,0 +1,40 @@
+// proto/auth.proto
+syntax = "proto3";
+
+package auth;
+
+service AuthService {
+  rpc FindUserByID(FindByIDRequest) returns (User);
+  rpc AuthenticateAccessToken(AuthenticateAccessTokenRequest) returns (User);
+  rpc FindRolePermission(FindRolePermissionRequest) returns (RolePermission);
+}
+
+message FindByIDRequest {
+  int64 id = 1;
+}
+
+message AuthenticateAccessTokenRequest {
+  string access_token = 1;
+}
+
+message FindRolePermissionRequest {
+  string role = 1;
+}
+
+message User {
+  int64 id = 1;
+  string email = 2;
+  string role = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message Permission {
+  string resource = 1;
+  string action = 2;
+}
+
+message RolePermission {
+  string role = 1;
+  repeated Permission permissions = 2;
+}

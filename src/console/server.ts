@@ -8,7 +8,7 @@ import { Logger } from '@/utils/logger';
 import { Config } from '@/config';
 import { setupRoutes } from '@/delivery/http/routes';
 // import { setupGraphQL } from '@/delivery/graphql';
-// import { setupGRPC } from '@/delivery/grpc';
+import { GrpcServer } from '@/delivery/grpc/server';
 
 // Repositories
 import { UserRepositoryImpl } from '@/repository/user.repository';
@@ -23,12 +23,14 @@ import {RefreshTokenUseCase} from "@/usecase/auth/refresh-token.usecase";
 
 export class Server {
     private httpServer: express.Application;
+    private grpcServer: GrpcServer;
     private dataSource!: DataSource;
     private redis!: Redis;
     private logger: typeof Logger;
 
     constructor() {
         this.httpServer = express();
+        this.grpcServer = new GrpcServer();
         this.logger = Logger;
     }
 
@@ -76,6 +78,10 @@ export class Server {
         container.registerSingleton(ValidateTokenUseCase);
     }
 
+    private async setupGrpc(): Promise<void> {
+        await this.grpcServer.start();
+    }
+
     async start(): Promise<void> {
         await this.initialize();
 
@@ -83,7 +89,7 @@ export class Server {
         await Promise.all([
             this.setupHttp(),
             // this.setupGraphQL(),
-            // this.setupGRPC()
+            this.setupGrpc()
         ]);
 
         this.setupGracefulShutdown();
@@ -137,21 +143,58 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
         await dataSource.initialize();
     }
 
+    // Clear existing registrations to avoid conflicts
+    container.clearInstances();
+
     // Register instances
     container.registerInstance('DataSource', dataSource);
     container.registerInstance('Redis', redis);
     container.registerInstance('Logger', Logger);
 
-    // Register repositories
-    container.registerSingleton('UserRepository', UserRepositoryImpl);
-    container.registerSingleton('SessionRepository', SessionRepositoryImpl);
-    container.registerSingleton('RBACRepository', RBACRepositoryImpl);
+    // Register repositories dengan constructor injection yang benar
+    container.register('UserRepository', {
+        useFactory: (container) => {
+            return new UserRepositoryImpl(container.resolve('DataSource'));
+        }
+    });
+
+    container.register('SessionRepository', {
+        useFactory: (container) => {
+            return new SessionRepositoryImpl(
+                container.resolve('DataSource'),
+                container.resolve('Redis')
+            );
+        }
+    });
+
+    container.register('RBACRepository', {
+        useFactory: (container) => {
+            return new RBACRepositoryImpl(
+                container.resolve('DataSource'),
+                container.resolve('Redis')
+            );
+        }
+    });
 
     // Register use cases
-    container.registerSingleton(LoginUseCase);
-    container.registerSingleton(ValidateTokenUseCase);
-    container.registerSingleton(LogoutUseCase);
-    container.registerSingleton(RefreshTokenUseCase);
+    container.register(LoginUseCase, {
+        useClass: LoginUseCase
+    });
 
-    console.log('UserRepository registered:', container.isRegistered('UserRepository'));
+    container.register(ValidateTokenUseCase, {
+        useClass: ValidateTokenUseCase
+    });
+
+    container.register(LogoutUseCase, {
+        useClass: LogoutUseCase
+    });
+
+    container.register(RefreshTokenUseCase, {
+        useClass: RefreshTokenUseCase
+    });
+
+    // Debug logs
+    console.log('Container setup completed');
+    console.log('SessionRepository registered:', container.isRegistered('SessionRepository'));
+    console.log('ValidateTokenUseCase registered:', container.isRegistered(ValidateTokenUseCase));
 }

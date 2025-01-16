@@ -11,4 +11,5 @@ export interface RBACRepository {
     loadPermission(): Promise<Permission>;
     hasPermission(role: Role, resource: string, action: string): Promise<boolean>;
     initializeDefaultPermissions(): Promise<void>;
+    findPermissionsByRole(role: Role): Promise<Array<{ resource: string; action: string }>>;
 }
