@@ -22,7 +22,20 @@ export class GrpcServer {
         });
     }
 
+    async initialize() {
+        // Resolve handler after container setup
+        this.authHandler = container.resolve(AuthGrpcHandler);
+
+        console.log('GrpcServer initialized with:', {
+            authHandler: !!this.authHandler,
+            validateTokenUseCase: container.isRegistered(ValidateTokenUseCase),
+            sessionRepo: container.isRegistered('SessionRepository')
+        });
+    }
+
     async start(): Promise<void> {
+        await this.initialize();
+
         const packageDefinition = protoLoader.loadSync(
             join(__dirname, '../../../proto/auth.proto'),
             {
@@ -35,11 +48,15 @@ export class GrpcServer {
         );
 
         const proto = grpc.loadPackageDefinition(packageDefinition);
+        // Debug logging untuk melihat service definition
+        console.log('Loaded proto service methods:',
+            Object.keys((proto as any).auth.AuthService.service));
 
         const serviceImplementation = {
-            findUserByID: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
-                this.authHandler.findUserByID(call, callback),
-
+            findUserById: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) => {
+                console.log('findUserById called with request:', call.request);
+                return this.authHandler.findUserByID(call, callback);
+            },
             authenticateAccessToken: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
                 this.authHandler.authenticateAccessToken(call, callback),
 
@@ -63,6 +80,7 @@ export class GrpcServer {
                         reject(error);
                         return;
                     }
+                    this.server.start();
                     Logger.info(`gRPC Server listening on ${address}`);
                     resolve();
                 }

@@ -17,15 +17,15 @@ function deserialize_auth_AuthenticateAccessTokenRequest(buffer_arg) {
   return auth_pb.AuthenticateAccessTokenRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_auth_FindByIDRequest(arg) {
-  if (!(arg instanceof auth_pb.FindByIDRequest)) {
-    throw new Error('Expected argument of type auth.FindByIDRequest');
+function serialize_auth_FindByIdRequest(arg) {
+  if (!(arg instanceof auth_pb.FindByIdRequest)) {
+    throw new Error('Expected argument of type auth.FindByIdRequest');
   }
   return Buffer.from(arg.serializeBinary());
 }
 
-function deserialize_auth_FindByIDRequest(buffer_arg) {
-  return auth_pb.FindByIDRequest.deserializeBinary(new Uint8Array(buffer_arg));
+function deserialize_auth_FindByIdRequest(buffer_arg) {
+  return auth_pb.FindByIdRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_auth_FindRolePermissionRequest(arg) {
@@ -63,14 +63,14 @@ function deserialize_auth_User(buffer_arg) {
 
 
 var AuthServiceService = exports.AuthServiceService = {
-  findUserByID: {
-    path: '/auth.AuthService/FindUserByID',
+  findUserById: {
+    path: '/auth.AuthService/FindUserById',
     requestStream: false,
     responseStream: false,
-    requestType: auth_pb.FindByIDRequest,
+    requestType: auth_pb.FindByIdRequest,
     responseType: auth_pb.User,
-    requestSerialize: serialize_auth_FindByIDRequest,
-    requestDeserialize: deserialize_auth_FindByIDRequest,
+    requestSerialize: serialize_auth_FindByIdRequest,
+    requestDeserialize: deserialize_auth_FindByIdRequest,
     responseSerialize: serialize_auth_User,
     responseDeserialize: deserialize_auth_User,
   },

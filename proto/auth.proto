@@ -4,12 +4,12 @@ syntax = "proto3";
 package auth;
 
 service AuthService {
-  rpc FindUserByID(FindByIDRequest) returns (User);
+  rpc FindUserById(FindByIdRequest) returns (User);
   rpc AuthenticateAccessToken(AuthenticateAccessTokenRequest) returns (User);
   rpc FindRolePermission(FindRolePermissionRequest) returns (RolePermission);
 }
 
-message FindByIDRequest {
+message FindByIdRequest {
   int64 id = 1;
 }
 

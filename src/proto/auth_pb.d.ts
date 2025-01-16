@@ -6,21 +6,21 @@
 
 import * as jspb from "google-protobuf";
 
-export class FindByIDRequest extends jspb.Message { 
+export class FindByIdRequest extends jspb.Message { 
     getId(): number;
-    setId(value: number): FindByIDRequest;
+    setId(value: number): FindByIdRequest;
 
     serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): FindByIDRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: FindByIDRequest): FindByIDRequest.AsObject;
+    toObject(includeInstance?: boolean): FindByIdRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: FindByIdRequest): FindByIdRequest.AsObject;
     static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
     static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: FindByIDRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): FindByIDRequest;
-    static deserializeBinaryFromReader(message: FindByIDRequest, reader: jspb.BinaryReader): FindByIDRequest;
+    static serializeBinaryToWriter(message: FindByIdRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): FindByIdRequest;
+    static deserializeBinaryFromReader(message: FindByIdRequest, reader: jspb.BinaryReader): FindByIdRequest;
 }
 
-export namespace FindByIDRequest {
+export namespace FindByIdRequest {
     export type AsObject = {
         id: number,
     }

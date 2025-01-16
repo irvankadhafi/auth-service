@@ -30,10 +30,12 @@ export class SessionRepositoryImpl implements SessionRepository {
         console.log(`SessionRepositoryImpl.findByToken called with type: ${tokenType}, token: ${token}`);
 
         const cacheKey = Session.newSessionTokenCacheKey(token);
-        const cachedSession = await this.redis.get(cacheKey);
 
+        // Try to get from cache first
+        const cachedSession = await this.redis.get(cacheKey);
         if (cachedSession) {
-            return JSON.parse(cachedSession);
+            const sessionData = JSON.parse(cachedSession);
+            return this.transformToSessionEntity(sessionData);
         }
 
         const session = await this.repository.findOne({
@@ -43,9 +45,31 @@ export class SessionRepositoryImpl implements SessionRepository {
         });
 
         if (session) {
+            // Cache the session
             await this.cacheSession(session);
+            return this.transformToSessionEntity(session);
         }
 
+        return session;
+    }
+
+    private transformToSessionEntity(data: any): Session {
+        const session = new Session();
+        Object.assign(session, {
+            id: data.id,
+            userId: data.userId,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            accessTokenExpiredAt: new Date(data.accessTokenExpiredAt),
+            refreshTokenExpiredAt: new Date(data.refreshTokenExpiredAt),
+            userAgent: data.userAgent,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            ipAddress: data.ipAddress,
+            createdAt: new Date(data.createdAt),
+            updatedAt: new Date(data.updatedAt),
+            role: data.role
+        });
         return session;
     }
 

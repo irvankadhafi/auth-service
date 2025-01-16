@@ -20,6 +20,9 @@ import { LoginUseCase } from '@/usecase/auth/login.usecase';
 import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
 import {LogoutUseCase} from "@/usecase/auth/logout.usecase";
 import {RefreshTokenUseCase} from "@/usecase/auth/refresh-token.usecase";
+import {SessionRepository} from "@/domain/repositories/session.repository";
+import {UserRepository} from "@/domain/repositories/user.repository";
+import {RBACRepository} from "@/domain/repositories/rbac.repository";
 
 export class Server {
     private httpServer: express.Application;
@@ -138,48 +141,29 @@ export class Server {
 }
 
 export async function setupContainer(dataSource: DataSource, redis: Redis): Promise<void> {
-    // Clear existing registrations
-    container.clearInstances();
+    // Reset container
+    container.reset();
 
     // Register instances
     container.registerInstance('DataSource', dataSource);
     container.registerInstance('Redis', redis);
     container.registerInstance('Logger', Logger);
 
-    // Register repositories
-    container.register('SessionRepository', {
-        useFactory: (container) => {
-            return new SessionRepositoryImpl(container.resolve('DataSource'), container.resolve('Redis'));
-        }
-    });
+    // Register repositories as singletons
+    container.registerSingleton<SessionRepository>('SessionRepository', SessionRepositoryImpl);
+    container.registerSingleton<UserRepository>('UserRepository', UserRepositoryImpl);
+    container.registerSingleton<RBACRepository>('RBACRepository', RBACRepositoryImpl);
 
-    container.register('UserRepository', {
-        useFactory: (container) => {
-            return new UserRepositoryImpl(container.resolve('DataSource'));
-        }
-    });
-
-    container.register('RBACRepository', {
-        useFactory: (container) => {
-            return new RBACRepositoryImpl(
-                container.resolve('DataSource'),
-                container.resolve('Redis')
-            );
-        }
-    });
-
-    // Register use cases
-    container.register(ValidateTokenUseCase, {
-        useFactory: (container) => {
-            return new ValidateTokenUseCase(
-                container.resolve('SessionRepository'),
-                container.resolve('RBACRepository')
-            );
-        }
-    });
+    // Register use cases as singletons
+    container.registerSingleton(ValidateTokenUseCase);
+    container.registerSingleton(LoginUseCase);
+    container.registerSingleton(LogoutUseCase);
+    container.registerSingleton(RefreshTokenUseCase);
 
     // Debug logs
     console.log('Container setup completed. Registrations:', {
+        dataSource: container.isRegistered('DataSource'),
+        redis: container.isRegistered('Redis'),
         sessionRepo: container.isRegistered('SessionRepository'),
         validateTokenUseCase: container.isRegistered(ValidateTokenUseCase)
     });

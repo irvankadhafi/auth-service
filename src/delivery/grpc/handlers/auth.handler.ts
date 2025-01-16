@@ -14,7 +14,13 @@ export class AuthGrpcHandler {
         @inject(ValidateTokenUseCase) private validateTokenUseCase: ValidateTokenUseCase,
         @inject('UserRepository') private userRepo: UserRepository,
         @inject('RBACRepository') private rbacRepo: RBACRepository
-    ) {}
+    ) {
+        console.log('AuthGrpcHandler constructed with:', {
+            validateTokenUseCase: !!validateTokenUseCase,
+            userRepo: !!userRepo,
+            rbacRepo: !!rbacRepo
+        });
+    }
 
     async findUserByID(
         call: ServerUnaryCall<{ id: number }, any>,
