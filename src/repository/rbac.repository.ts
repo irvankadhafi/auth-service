@@ -1,8 +1,8 @@
 // src/repository/rbac.repository.ts
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { Repository, DataSource } from 'typeorm';
 import { Redis } from 'ioredis';
-import {DEFAULT_ACTIONS, DEFAULT_RESOURCES, Role} from '@/utils/constants';
+import { DEFAULT_ACTIONS, DEFAULT_RESOURCES, Role } from '@/utils/constants';
 import { Resource } from '@/domain/entities/resource.entity';
 import { Action } from '@/domain/entities/action.entity';
 import { RoleResourceAction } from '@/domain/entities/roleResourceAction.entity';
@@ -16,9 +16,13 @@ export class RBACRepositoryImpl implements RBACRepository {
     private RBAC_PERMISSION_CACHE_KEY = 'cache:object:rbac:permission';
 
     constructor(
-        dataSource: DataSource,
-        private redis: Redis
+        @inject('DataSource') private dataSource: DataSource, // Inject DataSource
+        @inject('Redis') private redis: Redis // Inject Redis
     ) {
+        if (!dataSource.isInitialized) {
+            throw new Error('DataSource is not initialized');
+        }
+
         this.resourceRepo = dataSource.getRepository(Resource);
         this.actionRepo = dataSource.getRepository(Action);
         this.rraRepo = dataSource.getRepository(RoleResourceAction);

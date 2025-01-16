@@ -132,6 +132,11 @@ export class Server {
 }
 
 export async function setupContainer(dataSource: DataSource, redis: Redis): Promise<void> {
+    // Pastikan DataSource sudah diinisialisasi
+    if (!dataSource.isInitialized) {
+        await dataSource.initialize();
+    }
+
     // Register instances
     container.registerInstance('DataSource', dataSource);
     container.registerInstance('Redis', redis);
