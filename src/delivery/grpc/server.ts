@@ -6,7 +6,6 @@ import { join } from 'path';
 import { Logger } from '@/utils/logger';
 import { AuthGrpcHandler } from './handlers/auth.handler';
 import { Config } from '@/config';
-import {ValidateTokenUseCase} from "@/usecase/auth/validate-token.usecase";
 
 export class GrpcServer {
     private server: grpc.Server;
@@ -18,7 +17,7 @@ export class GrpcServer {
 
         console.log('Container registrations:', {
             sessionRepo: container.isRegistered('SessionRepository'),
-            validateTokenUseCase: container.isRegistered(ValidateTokenUseCase)
+            authUseCase: container.isRegistered('AuthUseCase')
         });
     }
 
@@ -28,7 +27,7 @@ export class GrpcServer {
 
         console.log('GrpcServer initialized with:', {
             authHandler: !!this.authHandler,
-            validateTokenUseCase: container.isRegistered(ValidateTokenUseCase),
+            authUseCase: container.isRegistered('AuthUseCase'),
             sessionRepo: container.isRegistered('SessionRepository')
         });
     }

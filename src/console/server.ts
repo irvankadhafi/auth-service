@@ -16,13 +16,15 @@ import { SessionRepositoryImpl } from '@/repository/session.repository';
 import { RBACRepositoryImpl } from '@/repository/rbac.repository';
 
 // Use Cases
-import { LoginUseCase } from '@/usecase/auth/login.usecase';
-import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
-import {LogoutUseCase} from "@/usecase/auth/logout.usecase";
-import {RefreshTokenUseCase} from "@/usecase/auth/refresh-token.usecase";
+// import { LoginUseCase } from '@/usecase/auth/login.usecase';
+// import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
+// import {LogoutUseCase} from "@/usecase/auth/logout.usecase";
+// import {RefreshTokenUseCase} from "@/usecase/auth/refresh-token.usecase";
 import {SessionRepository} from "@/domain/repositories/session.repository";
 import {UserRepository} from "@/domain/repositories/user.repository";
 import {RBACRepository} from "@/domain/repositories/rbac.repository";
+import {AuthUseCase} from "@/domain/usecases/auth.usecase";
+import {AuthUseCaseImpl} from "@/usecase/auth.usecase";
 
 export class Server {
     private httpServer: express.Application;
@@ -60,25 +62,6 @@ export class Server {
     private async setupRedis(): Promise<void> {
         this.redis = new Redis(Config.REDIS_URL);
         this.logger.info('Redis connected successfully');
-    }
-
-    private async setupDependencyInjection(): Promise<void> {
-        // Register instances
-        container.registerInstance('DataSource', this.dataSource);
-        container.registerInstance('Redis', this.redis);
-        container.registerInstance('Logger', this.logger);
-
-        // Register repositories
-        container.registerSingleton('UserRepository', UserRepositoryImpl);
-        container.registerSingleton('SessionRepository', SessionRepositoryImpl);
-        container.registerSingleton('RBACRepository', RBACRepositoryImpl);
-
-        // Debug log
-        console.log('UserRepository registered:', container.isRegistered('UserRepository'));
-
-        // Register use cases
-        container.registerSingleton(LoginUseCase);
-        container.registerSingleton(ValidateTokenUseCase);
     }
 
     private async setupGrpc(): Promise<void> {
@@ -153,18 +136,13 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
     container.registerSingleton<SessionRepository>('SessionRepository', SessionRepositoryImpl);
     container.registerSingleton<UserRepository>('UserRepository', UserRepositoryImpl);
     container.registerSingleton<RBACRepository>('RBACRepository', RBACRepositoryImpl);
-
-    // Register use cases as singletons
-    container.registerSingleton(ValidateTokenUseCase);
-    container.registerSingleton(LoginUseCase);
-    container.registerSingleton(LogoutUseCase);
-    container.registerSingleton(RefreshTokenUseCase);
+    container.registerSingleton<AuthUseCase>('AuthUseCase', AuthUseCaseImpl);
 
     // Debug logs
     console.log('Container setup completed. Registrations:', {
         dataSource: container.isRegistered('DataSource'),
         redis: container.isRegistered('Redis'),
         sessionRepo: container.isRegistered('SessionRepository'),
-        validateTokenUseCase: container.isRegistered(ValidateTokenUseCase)
+        authUseCase: container.isRegistered('AuthUseCase')
     });
 }

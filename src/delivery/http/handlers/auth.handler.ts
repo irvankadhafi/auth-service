@@ -1,18 +1,14 @@
 // src/delivery/http/handlers/auth.handler.ts
 import { Request, Response } from 'express';
-import { injectable } from 'tsyringe';
-import { LoginUseCase } from '@/usecase/auth/login.usecase';
-import { LogoutUseCase } from '@/usecase/auth/logout.usecase';
-import { RefreshTokenUseCase } from '@/usecase/auth/refresh-token.usecase';
+import {inject, injectable} from 'tsyringe';
 import { AuthError } from '@/utils/errors';
 import { Logger } from '@/utils/logger';
+import {AuthUseCase} from "@/domain/usecases/auth.usecase";
 
 @injectable()
 export class AuthHandler {
     constructor(
-        private loginUseCase: LoginUseCase,
-        private logoutUseCase: LogoutUseCase,
-        private refreshTokenUseCase: RefreshTokenUseCase
+        @inject('AuthUseCase') private authUseCase: AuthUseCase
     ) {}
 
     async login(req: Request, res: Response): Promise<void> {
@@ -25,7 +21,7 @@ export class AuthHandler {
             const latitude = req.headers['x-latitude'] as string || '0';
             const longitude = req.headers['x-longitude'] as string || '0';
 
-            const session = await this.loginUseCase.execute({
+            const session = await this.authUseCase.login({
                 email,
                 password,
                 userAgent,
@@ -71,7 +67,7 @@ export class AuthHandler {
                 return;
             }
 
-            await this.logoutUseCase.execute(token);
+            await this.authUseCase.logout(token);
 
             res.status(200).json({
                 status: 'success',
@@ -105,7 +101,7 @@ export class AuthHandler {
                 return;
             }
 
-            const session = await this.refreshTokenUseCase.execute(refreshToken);
+            const session = await this.authUseCase.refreshToken(refreshToken);
 
             res.status(200).json({
                 status: 'success',

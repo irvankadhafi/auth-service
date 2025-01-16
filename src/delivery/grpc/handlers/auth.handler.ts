@@ -1,22 +1,22 @@
 // src/delivery/grpc/handlers/auth.handler.ts
 import { ServerUnaryCall, sendUnaryData } from '@grpc/grpc-js';
 import {inject, injectable} from 'tsyringe';
-import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { RBACRepository } from '@/domain/repositories/rbac.repository';
 import { Logger } from '@/utils/logger';
 import { EnumHelper } from '@/utils/enum-helper';
 import {request} from "express";
+import {AuthUseCase} from "@/domain/usecases/auth.usecase";
 
 @injectable()
 export class AuthGrpcHandler {
     constructor(
-        @inject(ValidateTokenUseCase) private validateTokenUseCase: ValidateTokenUseCase,
+        @inject('AuthUseCase') private authUseCase: AuthUseCase,
         @inject('UserRepository') private userRepo: UserRepository,
         @inject('RBACRepository') private rbacRepo: RBACRepository
     ) {
         console.log('AuthGrpcHandler constructed with:', {
-            validateTokenUseCase: !!validateTokenUseCase,
+            authUseCase: !!authUseCase,
             userRepo: !!userRepo,
             rbacRepo: !!rbacRepo
         });
@@ -57,9 +57,8 @@ export class AuthGrpcHandler {
         callback: sendUnaryData<any>
     ): Promise<void> {
         try {
-            console.log({call});
             // Menggunakan access_token sesuai dengan definisi proto
-            const result = await this.validateTokenUseCase.execute(call.request.access_token);
+            const result = await this.authUseCase.validateToken(call.request.access_token);
 
             // Ambil data user
             const user = await this.userRepo.findById(result.userId);
