@@ -10,10 +10,15 @@ export class ValidateTokenUseCase {
     constructor(
         @inject('SessionRepository') private sessionRepo: SessionRepository,
         @inject('RBACRepository') private rbacRepo: RBACRepository
-    ) {}
+    ) {
+        console.log('ValidateTokenUseCase constructed with:', {
+            sessionRepo: !!sessionRepo,
+            rbacRepo: !!rbacRepo
+        });
+    }
 
     async execute(token: string): Promise<ValidateTokenResponse> {
-        // Find session
+        console.log('Executing ValidateTokenUseCase with token:', token);
         const session = await this.sessionRepo.findByToken(TokenType.ACCESS_TOKEN, token);
         if (!session) {
             throw new AuthError('Invalid token');

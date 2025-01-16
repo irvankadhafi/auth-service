@@ -138,12 +138,7 @@ export class Server {
 }
 
 export async function setupContainer(dataSource: DataSource, redis: Redis): Promise<void> {
-    // Pastikan DataSource sudah diinisialisasi
-    if (!dataSource.isInitialized) {
-        await dataSource.initialize();
-    }
-
-    // Clear existing registrations to avoid conflicts
+    // Clear existing registrations
     container.clearInstances();
 
     // Register instances
@@ -151,19 +146,16 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
     container.registerInstance('Redis', redis);
     container.registerInstance('Logger', Logger);
 
-    // Register repositories dengan constructor injection yang benar
-    container.register('UserRepository', {
+    // Register repositories
+    container.register('SessionRepository', {
         useFactory: (container) => {
-            return new UserRepositoryImpl(container.resolve('DataSource'));
+            return new SessionRepositoryImpl(container.resolve('DataSource'), container.resolve('Redis'));
         }
     });
 
-    container.register('SessionRepository', {
+    container.register('UserRepository', {
         useFactory: (container) => {
-            return new SessionRepositoryImpl(
-                container.resolve('DataSource'),
-                container.resolve('Redis')
-            );
+            return new UserRepositoryImpl(container.resolve('DataSource'));
         }
     });
 
@@ -177,24 +169,18 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
     });
 
     // Register use cases
-    container.register(LoginUseCase, {
-        useClass: LoginUseCase
-    });
-
     container.register(ValidateTokenUseCase, {
-        useClass: ValidateTokenUseCase
-    });
-
-    container.register(LogoutUseCase, {
-        useClass: LogoutUseCase
-    });
-
-    container.register(RefreshTokenUseCase, {
-        useClass: RefreshTokenUseCase
+        useFactory: (container) => {
+            return new ValidateTokenUseCase(
+                container.resolve('SessionRepository'),
+                container.resolve('RBACRepository')
+            );
+        }
     });
 
     // Debug logs
-    console.log('Container setup completed');
-    console.log('SessionRepository registered:', container.isRegistered('SessionRepository'));
-    console.log('ValidateTokenUseCase registered:', container.isRegistered(ValidateTokenUseCase));
+    console.log('Container setup completed. Registrations:', {
+        sessionRepo: container.isRegistered('SessionRepository'),
+        validateTokenUseCase: container.isRegistered(ValidateTokenUseCase)
+    });
 }

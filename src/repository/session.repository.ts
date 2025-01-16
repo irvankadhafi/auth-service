@@ -11,9 +11,12 @@ export class SessionRepositoryImpl implements SessionRepository {
     private repository: Repository<Session>;
 
     constructor(
-        @inject('DataSource') dataSource: DataSource,
+        @inject('DataSource') private dataSource: DataSource,
         @inject('Redis') private redis: Redis
     ) {
+        if (!dataSource.isInitialized) {
+            throw new Error('DataSource is not initialized');
+        }
         this.repository = dataSource.getRepository(Session);
     }
 
@@ -24,6 +27,8 @@ export class SessionRepositoryImpl implements SessionRepository {
     }
 
     async findByToken(tokenType: TokenType, token: string): Promise<Session | null> {
+        console.log(`SessionRepositoryImpl.findByToken called with type: ${tokenType}, token: ${token}`);
+
         const cacheKey = Session.newSessionTokenCacheKey(token);
         const cachedSession = await this.redis.get(cacheKey);
 

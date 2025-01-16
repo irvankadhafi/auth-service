@@ -1,6 +1,6 @@
 // src/delivery/grpc/handlers/auth.handler.ts
 import { ServerUnaryCall, sendUnaryData } from '@grpc/grpc-js';
-import { injectable } from 'tsyringe';
+import {inject, injectable} from 'tsyringe';
 import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { RBACRepository } from '@/domain/repositories/rbac.repository';
@@ -11,9 +11,9 @@ import {request} from "express";
 @injectable()
 export class AuthGrpcHandler {
     constructor(
-        private validateTokenUseCase: ValidateTokenUseCase,
-        private userRepo: UserRepository,
-        private rbacRepo: RBACRepository
+        @inject(ValidateTokenUseCase) private validateTokenUseCase: ValidateTokenUseCase,
+        @inject('UserRepository') private userRepo: UserRepository,
+        @inject('RBACRepository') private rbacRepo: RBACRepository
     ) {}
 
     async findUserByID(
