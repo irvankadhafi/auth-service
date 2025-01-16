@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { Server } from './console/server';
 import { migrateCommand } from './console/migrate';
 import { createMigrationCommand } from './console/create-migration';
+import { userSeederCommand } from './console/user.seeder';
 import { migrateRBACCommand } from './console/migrate-rbac';
 
 const program = new Command();
@@ -17,6 +18,7 @@ program
 program.addCommand(migrateCommand);
 program.addCommand(createMigrationCommand);
 program.addCommand(migrateRBACCommand);
+program.addCommand(userSeederCommand);
 
 // Add server command
 program

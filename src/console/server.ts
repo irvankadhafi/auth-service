@@ -152,4 +152,6 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
     container.registerSingleton(ValidateTokenUseCase);
     container.registerSingleton(LogoutUseCase);
     container.registerSingleton(RefreshTokenUseCase);
+
+    console.log('UserRepository registered:', container.isRegistered('UserRepository'));
 }

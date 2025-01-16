@@ -9,7 +9,8 @@
     "migrate": "ts-node -r tsconfig-paths/register src/index.ts migrate",
     "migrate:down": "ts-node -r tsconfig-paths/register src/index.ts migrate --direction down",
     "migration:create": "ts-node -r tsconfig-paths/register src/index.ts create:migration",
-    "migrate:rbac": "ts-node -r tsconfig-paths/register src/index.ts migrate:rbac"
+    "migrate:rbac": "ts-node -r tsconfig-paths/register src/index.ts migrate:rbac",
+    "seed:user": "ts-node -r tsconfig-paths/register src/index.ts seed:user"
   },
   "_moduleAliases": {
     "@": "dist"
