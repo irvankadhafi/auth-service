@@ -33,7 +33,7 @@ export class User {
     })
     role!: Role;
 
-    @Column({ default: true })
+    @Column({ default: true, name: 'is_active' })
     isActive!: boolean; // Tambahkan nama kolom yang hilang
 
     @CreateDateColumn({ name: 'created_at' })
