@@ -6,7 +6,7 @@ import { join } from 'path';
 import { Logger } from '@/utils/logger';
 import { AuthGrpcHandler } from './handlers/auth.handler';
 import { Config } from '@/config';
-import {internalServiceMiddleware} from "@/delivery/grpc/interceptors/auth.middleware";
+import {wrapHandler} from "@/delivery/grpc/utils/handlerWrapper";
 
 export class GrpcServer {
     private server: grpc.Server;
@@ -53,23 +53,21 @@ export class GrpcServer {
             Object.keys((proto as any).auth.AuthService.service));
 
         const serviceImplementation = {
-            findUserById: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) => {
+            findUserById: wrapHandler((call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) => {
                 console.log('findUserById called with request:', call.request);
                 return this.authHandler.findUserByID(call, callback);
-            },
-            authenticateAccessToken: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
-                this.authHandler.authenticateAccessToken(call, callback),
-
-            findRolePermission: (call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
+            }),
+            authenticateAccessToken: wrapHandler((call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
+                this.authHandler.authenticateAccessToken(call, callback)
+            ),
+            findRolePermission: wrapHandler((call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
                 this.authHandler.findRolePermission(call, callback)
+            )
         };
 
         this.server.addService(
             (proto as any).auth.AuthService.service,
-            serviceImplementation,
-            {
-                interceptors: [internalServiceInterceptor] // Terapkan interceptor di sini
-            }
+            serviceImplementation
         );
 
         return new Promise((resolve, reject) => {

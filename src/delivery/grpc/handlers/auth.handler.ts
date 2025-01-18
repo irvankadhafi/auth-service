@@ -1,17 +1,18 @@
-// src/delivery/grpc/handlers/auth.handler.ts
 import { ServerUnaryCall, sendUnaryData } from '@grpc/grpc-js';
 import {inject, injectable} from 'tsyringe';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { RBACRepository } from '@/domain/repositories/rbac.repository';
 import { Logger } from '@/utils/logger';
 import { EnumHelper } from '@/utils/enum-helper';
-import {request} from "express";
-import {AuthUseCase} from "@/domain/usecases/auth.usecase";
+import { AuthUseCase, UserUseCase } from "@/domain/usecases";
+import {Context} from "@/utils/context";
+import {Role} from "@/utils/constants";
 
 @injectable()
 export class AuthGrpcHandler {
     constructor(
         @inject('AuthUseCase') private authUseCase: AuthUseCase,
+        @inject('UserUseCase') private userUseCase: UserUseCase,
         @inject('UserRepository') private userRepo: UserRepository,
         @inject('RBACRepository') private rbacRepo: RBACRepository
     ) {
@@ -27,7 +28,7 @@ export class AuthGrpcHandler {
         callback: sendUnaryData<any>
     ): Promise<void> {
         try {
-            const user = await this.userRepo.findById(call.request.id);
+            const user = await this.userUseCase.findById(call.request.id);
             if (!user) {
                 callback({
                     code: 5, // NOT_FOUND
@@ -40,8 +41,8 @@ export class AuthGrpcHandler {
                 id: user.id,
                 email: user.email,
                 role: user.role,
-                created_at: user.createdAt.toISOString(),
-                updated_at: user.updatedAt.toISOString()
+                created_at: user.createdAt,
+                updated_at: user.updatedAt
             });
         } catch (error) {
             Logger.error('Error in findUserByID:', error);

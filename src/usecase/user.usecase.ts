@@ -2,10 +2,10 @@
 import { inject, injectable } from 'tsyringe';
 import { UserRepository } from '@/domain/repositories/user.repository';
 import { checkAccess } from '@/utils/rbac';
-import { AppError } from '@/utils/error';
 import {EnumHelper} from "@/utils/enum-helper";
 import {User} from "@/domain/entities/user.entity";
 import {UserUseCase} from "@/domain/usecases/user.usecase";
+import {AppError} from "@/utils/errors";
 
 @injectable()
 export class UserUsecaseImpl implements UserUseCase {
@@ -14,7 +14,6 @@ export class UserUsecaseImpl implements UserUseCase {
     ) {}
 
     async findById(userId: number): Promise<User> {
-        // Cek akses ke resource "user" dengan action "read"
         checkAccess('user', 'read');
 
         // Fetch user dari repository
@@ -27,7 +26,7 @@ export class UserUsecaseImpl implements UserUseCase {
     }
 
     async createUser(data: { email: string; password: string; role: string }): Promise<User> {
-        // Cek akses ke resource "user" dengan action "create"
+        // Periksa akses ke resource "user" dengan action "read"
         checkAccess('user', 'create');
 
         // Buat instance baru dari User

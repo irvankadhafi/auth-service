@@ -8,4 +8,4 @@ export const userRouter = Router();
 // Delay resolving UserHandler until the container is ready
 const getUserHandler = () => container.resolve(UserHandler);
 
-userRouter.get('/:id', authMiddleware, (req, res) => getUserHandler().findUserById(req, res));
+userRouter.get('/:id', authMiddleware, (req, res,next) => getUserHandler().findUserById(req, res,next));

@@ -4,8 +4,7 @@ import { container } from 'tsyringe';
 import { AuthUseCase } from '@/domain/usecases/auth.usecase';
 import { RBACRepository } from '@/domain/repositories/rbac.repository';
 import { Context } from '@/utils/context';
-import { AppError } from '@/utils/error';
-import {UserUseCase} from "@/domain/usecases/user.usecase";
+import {AppError, AuthError} from "@/utils/errors";
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -15,7 +14,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         }
 
         const authUseCase = container.resolve<AuthUseCase>('AuthUseCase');
-        const userUseCase = container.resolve<UserUseCase>('UserUseCase');
         const rbacRepo = container.resolve<RBACRepository>('RBACRepository');
 
         // Validasi token dan dapatkan user data
@@ -47,6 +45,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     } catch (error) {
         if (error instanceof AppError) {
             res.status(error.statusCode).json({
+                status: 'error',
+                message: error.message,
+            });
+            return;
+        }
+
+
+        if (error instanceof AuthError) {
+            res.status(300).json({
                 status: 'error',
                 message: error.message,
             });

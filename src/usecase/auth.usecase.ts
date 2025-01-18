@@ -148,7 +148,7 @@ export class AuthUseCaseImpl implements AuthUseCase {
 
         // Load user permissions
         const permissions = await this.rbacRepo.loadPermission();
-        const userPermissions = permissions.RRA.get(session.role) || [];
+        const userPermissions = permissions.RRA.get(user.role) || [];
 
         // Transform permissions to map for easier access
         const permissionMap = new Map<string, string[]>();

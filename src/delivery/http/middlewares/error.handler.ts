@@ -1,7 +1,7 @@
 // src/delivery/http/middlewares/error.handler.ts
 import { Request, Response, NextFunction } from 'express';
 import { Logger } from '@/utils/logger';
-import {AppError} from "@/utils/error";
+import { AppError, AuthError, PermissionError } from '@/utils/errors';
 
 export const errorHandler = (
     err: Error,
@@ -13,19 +13,38 @@ export const errorHandler = (
         message: err.message,
         stack: err.stack,
         path: req.path,
-        method: req.method
+        method: req.method,
     });
 
-    if (err instanceof AppError) {
-        res.status(err.statusCode).json({
-            status: 'error',
-            message: err.message,
-        });
-        return;
+    // Menggunakan switch case untuk menangani berbagai jenis error
+    switch (true) {
+        case err instanceof AuthError:
+            res.status(401).json({
+                status: 'error',
+                message: err.message,
+            });
+            break;
+
+        case err instanceof AppError:
+            res.status(err.statusCode).json({
+                status: 'error',
+                message: err.message,
+            });
+            break;
+
+        case err instanceof PermissionError:
+            res.status(401).json({
+                status: 'error',
+                message: err.message,
+            });
+            break;
+
+        default:
+            // Tangani error lainnya sebagai error internal
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error',
+            });
+            break;
     }
-
-    res.status(500).json({
-        status: 'error',
-        message: 'Internal server error'
-    });
 };
