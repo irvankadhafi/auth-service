@@ -6,6 +6,7 @@ import { join } from 'path';
 import { Logger } from '@/utils/logger';
 import { AuthGrpcHandler } from './handlers/auth.handler';
 import { Config } from '@/config';
+import {internalServiceMiddleware} from "@/delivery/grpc/interceptors/auth.middleware";
 
 export class GrpcServer {
     private server: grpc.Server;
@@ -65,7 +66,10 @@ export class GrpcServer {
 
         this.server.addService(
             (proto as any).auth.AuthService.service,
-            serviceImplementation
+            serviceImplementation,
+            {
+                interceptors: [internalServiceInterceptor] // Terapkan interceptor di sini
+            }
         );
 
         return new Promise((resolve, reject) => {
