@@ -6,6 +6,8 @@ import {EnumHelper} from "@/utils/enum-helper";
 import {User} from "@/domain/entities/user.entity";
 import {UserUseCase} from "@/domain/usecases/user.usecase";
 import {AppError} from "@/utils/errors";
+import {Resource} from "@/domain/entities/resource.entity";
+import {DEFAULT_ACTIONS, DEFAULT_RESOURCES} from "@/utils/constants";
 
 @injectable()
 export class UserUsecaseImpl implements UserUseCase {
@@ -14,7 +16,7 @@ export class UserUsecaseImpl implements UserUseCase {
     ) {}
 
     async findById(userId: number): Promise<User> {
-        checkAccess('user', 'read');
+        checkAccess(DEFAULT_RESOURCES.USER, DEFAULT_ACTIONS.READ);
 
         // Fetch user dari repository
         const user = await this.userRepo.findById(userId);

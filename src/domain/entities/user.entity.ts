@@ -65,9 +65,9 @@ export class User {
         return this.rolePerm.hasAccess(resource, action);
     }
 
-    setPermission(perm: Permission | null) {
+    setPermission(perm: { RRA: Map<Role, Array<{ resource: string; action: string }>> } | null) {
         if (!perm) return;
-        this.rolePerm = new RolePermission(this.role, perm);
+        this.rolePerm = new RolePermission(this.role, new Permission(perm.RRA));
     }
 
     setRolePermission(rolePerm: RolePermission) {

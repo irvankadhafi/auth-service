@@ -1,10 +1,12 @@
-// src/middleware/auth.middleware.ts
+// src/delivery/http/middlewares/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import { container } from 'tsyringe';
 import { AuthUseCase } from '@/domain/usecases/auth.usecase';
 import { RBACRepository } from '@/domain/repositories/rbac.repository';
 import { Context } from '@/utils/context';
-import {AppError, AuthError} from "@/utils/errors";
+import { AppError, AuthError } from '@/utils/errors';
+import { User } from '@/domain/entities/user.entity';
+import { Role } from '@/utils/constants';
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -22,26 +24,22 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         // Muat permissions berdasarkan role
         const permissions = await rbacRepo.findPermissionsByRole(tokenData.role);
 
-        // Transform permissions ke Map<Resource, Set<Action>>
-        const permissionMap = new Map<string, Set<string>>();
+        // Transform permissions ke Map<Role, Array<{ resource: string; action: string }>>
+        const permissionMap = new Map<Role, Array<{ resource: string; action: string }>>();
         permissions.forEach(({ resource, action }) => {
-            if (!permissionMap.has(resource)) {
-                permissionMap.set(resource, new Set());
-            }
-            permissionMap.get(resource)!.add(action);
+            const rolePermissions = permissionMap.get(tokenData.role) || [];
+            rolePermissions.push({ resource, action });
+            permissionMap.set(tokenData.role, rolePermissions);
         });
 
+        // Buat instance User dan set permissions
+        const user = new User();
+        user.id = tokenData.userId;
+        user.role = tokenData.role;
+        user.setPermission({ RRA: permissionMap });
+
         // Simpan ke AsyncLocalStorage
-        Context.run(
-            {
-                user: {
-                    userId: tokenData.userId,
-                    role: tokenData.role,
-                    permissions: permissionMap,
-                },
-            },
-            next
-        );
+        Context.run({ user }, next);
     } catch (error) {
         if (error instanceof AppError) {
             res.status(error.statusCode).json({
@@ -50,7 +48,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             });
             return;
         }
-
 
         if (error instanceof AuthError) {
             res.status(300).json({

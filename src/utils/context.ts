@@ -1,12 +1,9 @@
 // src/utils/context.ts
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { User } from '@/domain/entities/user.entity';
 
 interface RequestContext {
-    user: {
-        userId: number;
-        role: string;
-        permissions: Map<string, Set<string>>; // Map<Resource, Set<Action>>
-    } | null;
+    user: User | null;
 }
 
 const asyncLocalStorage = new AsyncLocalStorage<RequestContext>();
@@ -18,10 +15,14 @@ export const Context = {
     get: (): RequestContext | undefined => {
         return asyncLocalStorage.getStore();
     },
-    set: (key: keyof RequestContext, value: any) => {
+    setUser: (user: User | null) => {
         const store = asyncLocalStorage.getStore();
         if (store) {
-            store[key] = value;
+            store.user = user;
         }
+    },
+    getUser: (): User | null => {
+        const store = asyncLocalStorage.getStore();
+        return store?.user || null;
     },
 };
