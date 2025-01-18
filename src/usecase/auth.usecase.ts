@@ -141,9 +141,14 @@ export class AuthUseCaseImpl implements AuthUseCase {
             throw new AuthError('Token expired');
         }
 
+        const user = await this.userRepo.findById(session.userId);
+        if (!user) {
+            throw new AuthError('Invalid user');
+        }
+
         // Load user permissions
         const permissions = await this.rbacRepo.loadPermission();
-        const userPermissions = permissions.RRA.get(session.role) || [];
+        const userPermissions = permissions.RRA.get(user.role) || [];
 
         // Transform permissions to map for easier access
         const permissionMap = new Map<string, string[]>();
@@ -155,7 +160,7 @@ export class AuthUseCaseImpl implements AuthUseCase {
 
         return {
             userId: session.userId,
-            role: session.role,
+            role: user.role,
             permissions: permissionMap
         };
     }

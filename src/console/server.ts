@@ -7,7 +7,6 @@ import Redis from 'ioredis';
 import { Logger } from '@/utils/logger';
 import { Config } from '@/config';
 import { setupRoutes } from '@/delivery/http/routes';
-// import { setupGraphQL } from '@/delivery/graphql';
 import { GrpcServer } from '@/delivery/grpc/server';
 
 // Repositories
@@ -16,15 +15,13 @@ import { SessionRepositoryImpl } from '@/repository/session.repository';
 import { RBACRepositoryImpl } from '@/repository/rbac.repository';
 
 // Use Cases
-// import { LoginUseCase } from '@/usecase/auth/login.usecase';
-// import { ValidateTokenUseCase } from '@/usecase/auth/validate-token.usecase';
-// import {LogoutUseCase} from "@/usecase/auth/logout.usecase";
-// import {RefreshTokenUseCase} from "@/usecase/auth/refresh-token.usecase";
 import {SessionRepository} from "@/domain/repositories/session.repository";
 import {UserRepository} from "@/domain/repositories/user.repository";
 import {RBACRepository} from "@/domain/repositories/rbac.repository";
 import {AuthUseCase} from "@/domain/usecases/auth.usecase";
 import {AuthUseCaseImpl} from "@/usecase/auth.usecase";
+import {UserUseCase} from "@/domain/usecases/user.usecase";
+import {UserUsecaseImpl} from "@/usecase/user.usecase";
 
 export class Server {
     private httpServer: express.Application;
@@ -137,6 +134,7 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
     container.registerSingleton<UserRepository>('UserRepository', UserRepositoryImpl);
     container.registerSingleton<RBACRepository>('RBACRepository', RBACRepositoryImpl);
     container.registerSingleton<AuthUseCase>('AuthUseCase', AuthUseCaseImpl);
+    container.registerSingleton<UserUseCase>('UserUseCase', UserUsecaseImpl);
 
     // Debug logs
     console.log('Container setup completed. Registrations:', {

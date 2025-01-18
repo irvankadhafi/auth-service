@@ -2,7 +2,8 @@
 export enum Role {
     ADMIN = 'ADMIN',
     MANAGER = 'MANAGER',
-    EMPLOYEE = 'EMPLOYEE'
+    EMPLOYEE = 'EMPLOYEE',
+    INTERNAL_SERVICE = 'INTERNAL_SERVICE'
 }
 
 export const DEFAULT_RESOURCES = {

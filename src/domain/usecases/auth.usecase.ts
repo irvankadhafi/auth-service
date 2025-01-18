@@ -32,3 +32,11 @@ export interface AuthUseCase {
     refreshToken(token: string): Promise<LoginResponse>;
     logout(token: string): Promise<void>;
 }
+
+export interface TokenData {
+    userId: number;
+    role: string;
+    permissions: Map<string, string[]>;
+}
+
+export interface ValidateTokenResponse extends TokenData {}
