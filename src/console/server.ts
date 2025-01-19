@@ -24,7 +24,7 @@ import {UserUseCase} from "@/domain/usecases/user.usecase";
 import {UserUsecaseImpl} from "@/usecase/user.usecase";
 
 export class Server {
-    private httpServer: express.Application;
+    private readonly httpServer: express.Application;
     private grpcServer!: GrpcServer;
     private dataSource!: DataSource;
     private redis!: Redis;

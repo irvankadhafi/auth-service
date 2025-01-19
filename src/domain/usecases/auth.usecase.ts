@@ -1,5 +1,6 @@
 import { Role } from '@/utils/constants';
 import {User} from "@/domain/entities/user.entity";
+import {Session} from "@/domain/entities/session.entity";
 
 export interface LoginRequest {
     email: string;
@@ -28,7 +29,7 @@ export interface ValidateTokenResponse {
 }
 
 export interface AuthUseCase {
-    login(req: LoginRequest): Promise<LoginResponse>;
+    login(req: LoginRequest): Promise<Session>;
     validateToken(token: string): Promise<User>;
     refreshToken(token: string): Promise<LoginResponse>;
     logout(token: string): Promise<void>;

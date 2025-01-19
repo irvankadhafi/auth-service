@@ -18,7 +18,7 @@ export class AuthUseCaseImpl implements AuthUseCase {
         @inject('RBACRepository') private rbacRepo: RBACRepository
     ) {}
 
-    async login(req: LoginRequest): Promise<LoginResponse> {
+    async login(req: LoginRequest): Promise<Session> {
         // Find user
         const user = await this.userRepo.findByEmail(req.email);
         if (!user) {
@@ -62,16 +62,7 @@ export class AuthUseCaseImpl implements AuthUseCase {
         // Load permissions
         const permissions = await this.rbacRepo.loadPermission();
 
-        return {
-            accessToken,
-            refreshToken,
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-            },
-            expiresIn: session.accessTokenExpiredAt.getTime(),
-        };
+        return session;
     }
 
     async logout(token: string): Promise<void> {

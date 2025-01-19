@@ -4,6 +4,7 @@ import {inject, injectable} from 'tsyringe';
 import { AuthError } from '@/utils/errors';
 import { Logger } from '@/utils/logger';
 import {AuthUseCase} from "@/domain/usecases/auth.usecase";
+import {formatTimeRFC3339} from "@/utils";
 
 @injectable()
 export class AuthHandler {
@@ -34,8 +35,9 @@ export class AuthHandler {
                 status: 'success',
                 data: {
                     accessToken: session.accessToken,
+                    accessTokenExpiresAt: session.accessTokenExpiredAt.toISOString(),
                     refreshToken: session.refreshToken,
-                    expiresIn: session.expiresIn,
+                    refreshTokenExpiresAt: session.refreshTokenExpiredAt.toISOString(),
                     tokenType: 'Bearer'
                 }
             });
