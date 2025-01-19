@@ -18,4 +18,8 @@ export class RolePermission {
 
         return this.permission.hasAccess(resource, action);
     }
+
+    getPermissions(): Array<{ resource: string; action: string }> {
+        return this.permission.getPermissionsForRole(this.role);
+    }
 }

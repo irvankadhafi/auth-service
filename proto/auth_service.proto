@@ -1,0 +1,45 @@
+syntax = "proto3";
+package auth;
+
+import "user.proto";
+
+// =============================================
+// SERVICE DEFINITION
+// =============================================
+
+service AuthService {
+  rpc FindUserById(FindByIdRequest) returns (User) {};
+  rpc CreateUser(CreateUserRequest) returns (User) {};
+  rpc FindUserByEmail(FindUserByEmailRequest) returns (User) {};
+
+
+  rpc AuthenticateAccessToken(AuthenticateAccessTokenRequest) returns (AuthenticateAccessTokenResponse);
+  rpc FindRolePermission(FindRolePermissionRequest) returns (RolePermission);
+}
+
+message AuthenticateAccessTokenResponse {
+  User user = 1;
+  RolePermission role_permission = 2;
+}
+
+message FindByIdRequest {
+  int64 id = 1;
+}
+
+message AuthenticateAccessTokenRequest {
+  string access_token = 1;
+}
+
+message FindRolePermissionRequest {
+  string role = 1;
+}
+
+message Permission {
+  string resource = 1;
+  string action = 2;
+}
+
+message RolePermission {
+  string role = 1;
+  repeated Permission permissions = 2;
+}

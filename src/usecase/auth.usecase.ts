@@ -7,7 +7,8 @@ import {AuthError} from "@/utils/errors";
 import bcrypt from "bcrypt";
 import {randomBytes} from "crypto";
 import {Session} from "@/domain/entities/session.entity";
-import {TokenType} from "@/utils/constants";
+import {Role, TokenType} from "@/utils/constants";
+import {User} from "@/domain/entities/user.entity";
 
 @injectable()
 export class AuthUseCaseImpl implements AuthUseCase {
@@ -129,7 +130,7 @@ export class AuthUseCaseImpl implements AuthUseCase {
         };
     }
 
-    async validateToken(token: string): Promise<ValidateTokenResponse> {
+    async validateToken(token: string): Promise<User> {
         console.log('Executing ValidateTokenUseCase with token:', token);
         const session = await this.sessionRepo.findByToken(TokenType.ACCESS_TOKEN, token);
         if (!session) {
@@ -141,28 +142,28 @@ export class AuthUseCaseImpl implements AuthUseCase {
             throw new AuthError('Token expired');
         }
 
-        const user = await this.userRepo.findById(session.userId);
-        if (!user) {
+        const existUser = await this.userRepo.findById(session.userId);
+        if (!existUser) {
             throw new AuthError('Invalid user');
         }
 
         // Load user permissions
-        const permissions = await this.rbacRepo.loadPermission();
-        const userPermissions = permissions.RRA.get(user.role) || [];
+        const permissions = await this.rbacRepo.findPermissionsByRole(existUser.role);
 
-        // Transform permissions to map for easier access
-        const permissionMap = new Map<string, string[]>();
-        userPermissions.forEach(({ resource, action }) => {
-            const actions = permissionMap.get(resource) || [];
-            actions.push(action);
-            permissionMap.set(resource, actions);
+        // Transform permissions ke Map<Role, Array<{ resource: string; action: string }>>
+        const permissionMap = new Map<Role, Array<{ resource: string; action: string }>>();
+        permissions.forEach(({ resource, action }) => {
+            const rolePermissions = permissionMap.get(existUser.role) || [];
+            rolePermissions.push({ resource, action });
+            permissionMap.set(existUser.role, rolePermissions);
         });
 
-        return {
-            userId: session.userId,
-            role: user.role,
-            permissions: permissionMap
-        };
+        const user = new User(existUser);
+        user.id = session.userId;
+        user.role = existUser.role;
+        user.setPermission({ RRA: permissionMap });
+
+        return user;
     }
 
 }

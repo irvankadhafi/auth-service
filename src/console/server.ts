@@ -25,22 +25,21 @@ import {UserUsecaseImpl} from "@/usecase/user.usecase";
 
 export class Server {
     private httpServer: express.Application;
-    private grpcServer: GrpcServer;
+    private grpcServer!: GrpcServer;
     private dataSource!: DataSource;
     private redis!: Redis;
     private logger: typeof Logger;
 
     constructor() {
         this.httpServer = express();
-        this.grpcServer = new GrpcServer();
         this.logger = Logger;
     }
 
     async initialize(): Promise<void> {
         await this.setupDatabase();
         await this.setupRedis();
-        await setupContainer(this.dataSource, this.redis); // Use the shared setup function
-        // await this.setupDependencyInjection();
+        await setupContainer(this.dataSource, this.redis);
+        this.grpcServer = new GrpcServer();
     }
 
     private async setupDatabase(): Promise<void> {
@@ -105,9 +104,21 @@ export class Server {
             this.logger.info('Shutting down...');
 
             try {
+                // Shutdown gRPC server
+                if (this.grpcServer) {
+                    await this.grpcServer.stop();
+                    this.logger.info('gRPC Server shutdown complete');
+                }
+
+                // Shutdown Redis
                 await this.redis.quit();
+                this.logger.info('Redis connection closed');
+
+                // Shutdown database
                 await this.dataSource.destroy();
-                this.logger.info('Connections closed');
+                this.logger.info('Database connection closed');
+
+                // Exit the process
                 process.exit(0);
             } catch (error) {
                 this.logger.error('Error during shutdown:', error);
@@ -115,13 +126,13 @@ export class Server {
             }
         };
 
+        // Handle SIGTERM and SIGINT signals
         process.on('SIGTERM', shutdown);
         process.on('SIGINT', shutdown);
     }
 }
 
 export async function setupContainer(dataSource: DataSource, redis: Redis): Promise<void> {
-    // Reset container
     container.reset();
 
     // Register instances
@@ -129,18 +140,10 @@ export async function setupContainer(dataSource: DataSource, redis: Redis): Prom
     container.registerInstance('Redis', redis);
     container.registerInstance('Logger', Logger);
 
-    // Register repositories as singletons
+    // Register repositories and use cases
     container.registerSingleton<SessionRepository>('SessionRepository', SessionRepositoryImpl);
     container.registerSingleton<UserRepository>('UserRepository', UserRepositoryImpl);
     container.registerSingleton<RBACRepository>('RBACRepository', RBACRepositoryImpl);
     container.registerSingleton<AuthUseCase>('AuthUseCase', AuthUseCaseImpl);
     container.registerSingleton<UserUseCase>('UserUseCase', UserUsecaseImpl);
-
-    // Debug logs
-    console.log('Container setup completed. Registrations:', {
-        dataSource: container.isRegistered('DataSource'),
-        redis: container.isRegistered('Redis'),
-        sessionRepo: container.isRegistered('SessionRepository'),
-        authUseCase: container.isRegistered('AuthUseCase')
-    });
 }

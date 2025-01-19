@@ -1,10 +1,40 @@
 // package: auth
-// file: auth.proto
+// file: auth_service.proto
 
 /* tslint:disable */
 /* eslint-disable */
 
 import * as jspb from "google-protobuf";
+import * as user_pb from "./user_pb";
+
+export class AuthenticateAccessTokenResponse extends jspb.Message { 
+
+    hasUser(): boolean;
+    clearUser(): void;
+    getUser(): user_pb.User | undefined;
+    setUser(value?: user_pb.User): AuthenticateAccessTokenResponse;
+
+    hasRolePermission(): boolean;
+    clearRolePermission(): void;
+    getRolePermission(): RolePermission | undefined;
+    setRolePermission(value?: RolePermission): AuthenticateAccessTokenResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): AuthenticateAccessTokenResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: AuthenticateAccessTokenResponse): AuthenticateAccessTokenResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: AuthenticateAccessTokenResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): AuthenticateAccessTokenResponse;
+    static deserializeBinaryFromReader(message: AuthenticateAccessTokenResponse, reader: jspb.BinaryReader): AuthenticateAccessTokenResponse;
+}
+
+export namespace AuthenticateAccessTokenResponse {
+    export type AsObject = {
+        user?: user_pb.User.AsObject,
+        rolePermission?: RolePermission.AsObject,
+    }
+}
 
 export class FindByIdRequest extends jspb.Message { 
     getId(): number;
@@ -63,38 +93,6 @@ export class FindRolePermissionRequest extends jspb.Message {
 export namespace FindRolePermissionRequest {
     export type AsObject = {
         role: string,
-    }
-}
-
-export class User extends jspb.Message { 
-    getId(): number;
-    setId(value: number): User;
-    getEmail(): string;
-    setEmail(value: string): User;
-    getRole(): string;
-    setRole(value: string): User;
-    getCreatedAt(): string;
-    setCreatedAt(value: string): User;
-    getUpdatedAt(): string;
-    setUpdatedAt(value: string): User;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): User.AsObject;
-    static toObject(includeInstance: boolean, msg: User): User.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: User, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): User;
-    static deserializeBinaryFromReader(message: User, reader: jspb.BinaryReader): User;
-}
-
-export namespace User {
-    export type AsObject = {
-        id: number,
-        email: string,
-        role: string,
-        createdAt: string,
-        updatedAt: string,
     }
 }
 

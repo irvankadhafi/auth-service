@@ -20,4 +20,8 @@ export class Permission {
             (perm) => perm.resource === resource.id && perm.action === action.id
         );
     }
+
+    getPermissionsForRole(role: Role): Array<{ resource: string; action: string }> {
+        return this.resourceActions.get(role) || [];
+    }
 }

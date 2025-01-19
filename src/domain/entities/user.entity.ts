@@ -17,6 +17,12 @@ import { Permission } from "@/rbac/permission";
 
 @Entity('users')
 export class User {
+    constructor(data?: Partial<User>) {
+        if (data) {
+            Object.assign(this, data);
+        }
+    }
+
     @PrimaryGeneratedColumn()
     id!: number;
 
@@ -74,9 +80,21 @@ export class User {
         this.rolePerm = rolePerm;
     }
 
-    getRolePermission(): RolePermission | null {
-        return this.rolePerm;
+    getRolePermission(): { role: string; permissions: Array<{ resource: string; action: string }> } | null {
+        if (!this.rolePerm) return null;
+
+        // Ambil daftar permissions dari RolePermission
+        const permissions = this.rolePerm.getPermissions();
+
+        return {
+            role: this.role, // Ambil role dari RolePermission
+            permissions: permissions.map(perm => ({
+                resource: perm.resource,
+                action: perm.action
+            }))
+        };
     }
+
 
     isAdmin(): boolean {
         return this.role === Role.ADMIN;

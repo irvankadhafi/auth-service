@@ -11,7 +11,7 @@
     "migration:create": "ts-node -r tsconfig-paths/register src/index.ts create:migration",
     "migrate:rbac": "ts-node -r tsconfig-paths/register src/index.ts migrate:rbac",
     "seed:user": "ts-node -r tsconfig-paths/register src/index.ts seed:user",
-    "proto:generate": "grpc_tools_node_protoc --js_out=import_style=commonjs,binary:./src/proto --grpc_out=grpc_js:./src/proto --plugin=protoc-gen-grpc=./node_modules/.bin/grpc_tools_node_protoc_plugin --ts_out=grpc_js:./src/proto -I ./proto auth.proto"
+    "proto:generate": "./scripts/generate-proto.sh"
   },
   "_moduleAliases": {
     "@": "dist"

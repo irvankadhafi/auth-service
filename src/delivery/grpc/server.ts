@@ -8,9 +8,23 @@ import { AuthGrpcHandler } from './handlers/auth.handler';
 import { Config } from '@/config';
 import {wrapHandler} from "@/delivery/grpc/utils/handlerWrapper";
 
+import { AuthServiceService, IAuthServiceServer } from '@/proto/auth_service_grpc_pb';
+
+import {
+    FindByIdRequest,
+    AuthenticateAccessTokenRequest,
+    FindRolePermissionRequest,
+    RolePermission, AuthenticateAccessTokenResponse,
+} from '@/proto/auth_service_pb';
+
+import {
+    CreateUserRequest, FindUserByEmailRequest,
+    User
+} from '@/proto/user_pb';
+
 export class GrpcServer {
     private server: grpc.Server;
-    private authHandler: AuthGrpcHandler;
+    private authHandler!: AuthGrpcHandler;
 
     constructor() {
         this.server = new grpc.Server();
@@ -36,37 +50,47 @@ export class GrpcServer {
     async start(): Promise<void> {
         await this.initialize();
 
-        const packageDefinition = protoLoader.loadSync(
-            join(__dirname, '../../../proto/auth.proto'),
-            {
-                keepCase: true,
-                longs: String,
-                enums: String,
-                defaults: true,
-                oneofs: true
-            }
-        );
-
-        const proto = grpc.loadPackageDefinition(packageDefinition);
-        // Debug logging untuk melihat service definition
-        console.log('Loaded proto service methods:',
-            Object.keys((proto as any).auth.AuthService.service));
-
-        const serviceImplementation = {
-            findUserById: wrapHandler((call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) => {
-                console.log('findUserById called with request:', call.request);
-                return this.authHandler.findUserByID(call, callback);
-            }),
-            authenticateAccessToken: wrapHandler((call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
-                this.authHandler.authenticateAccessToken(call, callback)
+        // Implementasi service
+        const serviceImplementation: IAuthServiceServer = {
+            findUserById: wrapHandler(
+                (call: grpc.ServerUnaryCall<FindByIdRequest, User>, callback: grpc.sendUnaryData<User>) => {
+                    console.log('findUserById called with request:', call.request);
+                    return this.authHandler.findUserByID(call, callback);
+                }
             ),
-            findRolePermission: wrapHandler((call: grpc.ServerUnaryCall<any, any>, callback: grpc.sendUnaryData<any>) =>
-                this.authHandler.findRolePermission(call, callback)
-            )
+            createUser: wrapHandler(
+                (call: grpc.ServerUnaryCall<CreateUserRequest, User>, callback: grpc.sendUnaryData<User>) => {
+                    console.log('createUser called with request:', call.request);
+                    // return this.authHandler.createUser(call, callback);
+                }
+            ),
+            findUserByEmail: wrapHandler(
+                (call: grpc.ServerUnaryCall<FindUserByEmailRequest, User>, callback: grpc.sendUnaryData<User>) => {
+                    console.log('findUserByEmail called with request:', call.request);
+                    // return this.authHandler.findUserByEmail(call, callback);
+                }
+            ),
+            authenticateAccessToken: wrapHandler(
+                (
+                    call: grpc.ServerUnaryCall<AuthenticateAccessTokenRequest, AuthenticateAccessTokenResponse>,
+                    callback: grpc.sendUnaryData<AuthenticateAccessTokenResponse>
+                ) => {
+                    return this.authHandler.authenticateAccessToken(call, callback);
+                }
+            ),
+            findRolePermission: wrapHandler(
+                (
+                    call: grpc.ServerUnaryCall<FindRolePermissionRequest, RolePermission>,
+                    callback: grpc.sendUnaryData<RolePermission>
+                ) => {
+                    return this.authHandler.findRolePermission(call, callback);
+                }
+            ),
         };
 
+        // Tambahkan service ke server
         this.server.addService(
-            (proto as any).auth.AuthService.service,
+            AuthServiceService,
             serviceImplementation
         );
 
@@ -81,7 +105,6 @@ export class GrpcServer {
                         reject(error);
                         return;
                     }
-                    this.server.start();
                     Logger.info(`gRPC Server listening on ${address}`);
                     resolve();
                 }

@@ -1,0 +1,28 @@
+syntax = "proto3";
+package auth;
+
+message User {
+  int64 id = 1;
+  string email = 2;
+  string role = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message CreateUserRequest {
+  int64 user_id = 1;
+  User body = 2;
+}
+
+message FindUserByEmailRequest {
+  string email = 1;
+}
+
+message UpdateUserByIDRequest {
+  int64 user_id = 1;
+  User body = 2;
+}
+
+message Users {
+  repeated User users = 1;
+}

@@ -1,4 +1,3 @@
-// src/delivery/http/middlewares/error.handler.ts
 import { Request, Response, NextFunction } from 'express';
 import { Logger } from '@/utils/logger';
 import { AppError, AuthError, PermissionError } from '@/utils/errors';
