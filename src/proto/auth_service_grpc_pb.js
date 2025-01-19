@@ -1,7 +1,7 @@
 // GENERATED CODE -- DO NOT EDIT!
 
 'use strict';
-var grpc = require('@grpc/grpc-js');
+var grpc = require("@grpc/grpc-js");
 var auth_service_pb = require('./auth_service_pb.js');
 var user_pb = require('./user_pb.js');
 
